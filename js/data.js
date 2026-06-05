@@ -21,7 +21,8 @@ const EXERCISES = [
   { id: 'decline_pushups',    name: 'Decline Push-ups',        equipment: [],          reps: 12, category: 'push',      unit: 'reps', muscles: ['chest'] },
   { id: 'pike_pushups',       name: 'Pike Push-ups',           equipment: [],          reps: 12, category: 'push',      unit: 'reps', muscles: ['shoulders'] },
   { id: 'hspu',               name: 'Handstand Push-ups',      equipment: [],          reps: 8,  category: 'push',      unit: 'reps', muscles: ['shoulders', 'triceps'] },
-  { id: 'tricep_dips',        name: 'Tricep Dips',             equipment: [],          reps: 15, category: 'push',      unit: 'reps', muscles: ['triceps'] },
+  { id: 'tricep_dips',        name: 'Tricep Dips',             equipment: [],          reps: 15, category: 'push',      unit: 'reps', muscles: ['triceps', 'chest'] },
+  { id: 'chest_dips',         name: 'Chest Dips',              equipment: [],          reps: 12, category: 'push',      unit: 'reps', muscles: ['chest', 'triceps'] },
 
   { id: 'pullups',            name: 'Pull-ups',                equipment: ['pullup_bar'], reps: 8,  category: 'pull',  unit: 'reps', muscles: ['back'] },
   { id: 'chinups',            name: 'Chin-ups',                equipment: ['pullup_bar'], reps: 8,  category: 'pull',  unit: 'reps', muscles: ['biceps', 'back'] },
@@ -156,7 +157,7 @@ const EXERCISES = [
   { id: 'bb_lunge',           name: 'Barbell Lunge',           equipment: ['barbell'],  reps: 12, category: 'legs',    unit: 'reps', muscles: ['legs'] },
   { id: 'bb_hip_thrust',      name: 'Barbell Hip Thrust',      equipment: ['barbell'],  reps: 12, category: 'legs',    unit: 'reps', muscles: ['legs'] },
   { id: 'bb_calf_raise',      name: 'Barbell Calf Raise',      equipment: ['barbell'],  reps: 20, category: 'legs',    unit: 'reps', muscles: ['legs'] },
-  { id: 'bb_sumo_deadlift',   name: 'Sumo Deadlift',           equipment: ['barbell'],  reps: 8,  category: 'legs',    unit: 'reps', muscles: ['legs'] },
+  { id: 'bb_sumo_deadlift',   name: 'Sumo Deadlift',           equipment: ['barbell'],  reps: 8,  category: 'legs',    unit: 'reps', muscles: ['legs', 'back'] },
 
   // ── Cables — Chest ────────────────────────────────────────────────────────
   { id: 'cable_fly',          name: 'Cable Fly',               equipment: ['cables'],   reps: 15, category: 'push',    unit: 'reps', muscles: ['chest'] },
@@ -233,18 +234,25 @@ const EXERCISES = [
   { id: 'band_face_pull',     name: 'Band Face Pulls',         equipment: ['bands'],    reps: 20, category: 'pull',    unit: 'reps', muscles: ['shoulders'] },
   { id: 'band_hip_thrust',    name: 'Banded Hip Thrust',       equipment: ['bands'],    reps: 15, category: 'legs',    unit: 'reps', muscles: ['legs'] },
 
-  // ── CrossFit / Olympic ────────────────────────────────────────────────────
-  { id: 'power_clean',        name: 'Power Clean',             equipment: ['barbell'],  reps: 5,  category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'hang_power_clean',   name: 'Hang Power Clean',        equipment: ['barbell'],  reps: 5,  category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'clean_jerk',         name: 'Clean and Jerk',          equipment: ['barbell'],  reps: 3,  category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'power_snatch',       name: 'Power Snatch',            equipment: ['barbell'],  reps: 5,  category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'thruster',           name: 'Thrusters',               equipment: ['barbell'],  reps: 7,  category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'push_jerk',          name: 'Push Jerk',               equipment: ['barbell'],  reps: 5,  category: 'push',    unit: 'reps', muscles: ['shoulders', 'triceps'] },
-  { id: 'sdhp',               name: 'Sumo DL High Pull',       equipment: ['barbell'],  reps: 10, category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'db_snatch',          name: 'DB Snatch',               equipment: ['dumbbells'],reps: 10, category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'db_thruster',        name: 'DB Thrusters',            equipment: ['dumbbells'],reps: 10, category: 'full_body',unit:'reps', muscles: ['full_body'] },
-  { id: 'kb_american_swing',  name: 'KB American Swing',       equipment: ['kettlebell'],reps:15, category: 'cardio',  unit: 'reps', muscles: ['full_body'] },
-  { id: 'burpee_pullup',      name: 'Burpee Pull-ups',         equipment: ['pullup_bar'],reps: 7, category: 'cardio',  unit: 'reps', muscles: ['full_body'] },
+  // ── Olympic / Compound ────────────────────────────────────────────────────
+  { id: 'power_clean',        name: 'Power Clean',             equipment: ['barbell'],   reps: 5,  category: 'full_body', unit: 'reps', muscles: ['back', 'legs'] },
+  { id: 'hang_power_clean',   name: 'Hang Power Clean',        equipment: ['barbell'],   reps: 5,  category: 'full_body', unit: 'reps', muscles: ['back', 'legs'] },
+  { id: 'clean_jerk',         name: 'Clean and Jerk',          equipment: ['barbell'],   reps: 3,  category: 'full_body', unit: 'reps', muscles: ['back', 'legs', 'shoulders'] },
+  { id: 'power_snatch',       name: 'Power Snatch',            equipment: ['barbell'],   reps: 5,  category: 'full_body', unit: 'reps', muscles: ['back', 'legs', 'shoulders'] },
+  { id: 'hang_power_snatch',  name: 'Hang Power Snatch',       equipment: ['barbell'],   reps: 5,  category: 'full_body', unit: 'reps', muscles: ['back', 'legs', 'shoulders'] },
+  { id: 'thruster',           name: 'Thrusters',               equipment: ['barbell'],   reps: 7,  category: 'full_body', unit: 'reps', muscles: ['legs', 'shoulders'] },
+  { id: 'push_jerk',          name: 'Push Jerk',               equipment: ['barbell'],   reps: 5,  category: 'push',      unit: 'reps', muscles: ['shoulders', 'triceps'] },
+  { id: 'split_jerk',         name: 'Split Jerk',              equipment: ['barbell'],   reps: 5,  category: 'push',      unit: 'reps', muscles: ['shoulders'] },
+  { id: 'sdhp',               name: 'Sumo DL High Pull',       equipment: ['barbell'],   reps: 10, category: 'full_body', unit: 'reps', muscles: ['back', 'shoulders'] },
+  { id: 'db_snatch',          name: 'DB Snatch',               equipment: ['dumbbells'], reps: 10, category: 'full_body', unit: 'reps', muscles: ['back', 'legs', 'shoulders'] },
+  { id: 'db_thruster',        name: 'DB Thrusters',            equipment: ['dumbbells'], reps: 10, category: 'full_body', unit: 'reps', muscles: ['legs', 'shoulders'] },
+  { id: 'kb_american_swing',  name: 'KB American Swing',       equipment: ['kettlebell'], reps: 15, category: 'cardio',  unit: 'reps', muscles: ['back', 'legs'] },
+  { id: 'burpee_pullup',      name: 'Burpee Pull-ups',         equipment: ['pullup_bar'], reps: 7,  category: 'cardio',  unit: 'reps', muscles: ['chest', 'back'] },
+  { id: 'bb_front_squat',     name: 'Front Squat',             equipment: ['barbell'],   reps: 8,  category: 'legs',      unit: 'reps', muscles: ['legs'] },
+  { id: 'bb_hack_squat',      name: 'Hack Squat',              equipment: ['barbell'],   reps: 10, category: 'legs',      unit: 'reps', muscles: ['legs'] },
+  { id: 'bb_floor_press',     name: 'Floor Press',             equipment: ['barbell'],   reps: 10, category: 'push',      unit: 'reps', muscles: ['chest', 'triceps'] },
+  { id: 'bb_incline_row',     name: 'Barbell Incline Row',     equipment: ['barbell'],   reps: 10, category: 'pull',      unit: 'reps', muscles: ['back'] },
+  { id: 'bb_pendlay_row',     name: 'Pendlay Row',             equipment: ['barbell'],   reps: 8,  category: 'pull',      unit: 'reps', muscles: ['back'] },
 ];
 
 // ── Muscle Groups (for superset split selection — multi-select) ──────────────
