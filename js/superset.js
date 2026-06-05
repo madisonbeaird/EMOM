@@ -1,6 +1,6 @@
 // ── Superset Tab ─────────────────────────────────────────────────────────────
 let ssEquipment   = [];
-let ssSplit       = null;   // selected split id
+let ssSplits      = [];     // selected muscle group ids (multi-select)
 let ssWorkout     = [];
 let ssRunning     = false;
 let ssPairIdx     = 0;
@@ -37,19 +37,25 @@ function renderSupersetSetup() {
         `).join('')}
       </div>
 
-      <p class="label" style="margin-top:24px">Select Split</p>
-      <div class="split-grid">
-        ${SPLITS.map(s => `
-          <button class="split-chip ${ssSplit === s.id ? 'active' : ''}"
-                  onclick="ssSelectSplit('${s.id}')">
-            <span class="split-chip-label">${s.label}</span>
-            <span class="split-chip-desc">${s.desc}</span>
+      <p class="label" style="margin-top:24px">Select Muscle Groups</p>
+      <p class="split-hint">Pick one or more to build your split</p>
+      <div class="muscle-grid">
+        ${MUSCLE_GROUPS.map(g => `
+          <button class="muscle-chip ${ssSplits.includes(g.id) ? 'active' : ''}"
+                  onclick="ssToggleMuscle('${g.id}')">
+            ${g.label}
           </button>
         `).join('')}
       </div>
 
-      <div class="btn-row" style="margin-top:28px">
-        <button class="btn-primary" onclick="ssGenerate()" ${!ssSplit ? 'disabled' : ''}>
+      ${ssSplits.length > 0 ? `
+        <div class="selected-split-label">
+          ${ssSplits.map(id => MUSCLE_GROUPS.find(g => g.id === id)?.label).join(' + ')}
+        </div>
+      ` : ''}
+
+      <div class="btn-row" style="margin-top:24px">
+        <button class="btn-primary" onclick="ssGenerate()" ${ssSplits.length === 0 ? 'disabled' : ''}>
           Generate Workout
         </button>
         <button class="btn-secondary" onclick="ssOpenCustom()">Custom</button>
@@ -61,12 +67,12 @@ function renderSupersetSetup() {
 // ── Preview ───────────────────────────────────────────────────────────────────
 
 function renderSupersetPreview() {
-  const splitLabel = ssSplit ? SPLITS.find(s => s.id === ssSplit)?.label : 'Custom';
+  const splitLabel = ssSplits.length ? ssSplits.map(id => MUSCLE_GROUPS.find(g => g.id === id)?.label).join(' + ') : 'Custom';
   return `
     <div class="workout-preview">
       <div class="preview-header">
         <div>
-          <p class="preview-label">${ssIsCustom ? 'Custom' : splitLabel} Superset</p>
+          <p class="preview-label">${ssIsCustom ? 'Custom' : (ssSplits.map(id => MUSCLE_GROUPS.find(g=>g.id===id)?.label).join(' + '))} Superset</p>
           <p class="preview-sub">${ssWorkout.length} pairs</p>
         </div>
         <div class="preview-actions">
@@ -283,15 +289,20 @@ function ssToggleEquipment(id) {
   renderSupersetTab();
 }
 
-function ssSelectSplit(id) {
-  ssSplit = (ssSplit === id) ? null : id;  // tap again to deselect
+function ssToggleMuscle(id) {
+  if (ssSplits.includes(id)) ssSplits = ssSplits.filter(m => m !== id);
+  else ssSplits.push(id);
   renderSupersetTab();
 }
 
 function ssGenerate() {
-  if (!ssSplit) { showToast('Select a split first'); return; }
-  ssWorkout  = generateSupersetWorkout(ssSplit, ssEquipment);
+  if (ssSplits.length === 0) { showToast('Select at least one muscle group'); return; }
+  ssWorkout  = generateSupersetWorkout(ssSplits, ssEquipment);
   ssIsCustom = false;
+  if (ssWorkout.length === 0) {
+    showToast('No exercises found — try adding equipment');
+    return;
+  }
   renderSupersetTab();
 }
 
@@ -326,12 +337,14 @@ function ssAdjustRest(i, delta) {
 }
 
 function ssSaveCurrent() {
-  const splitLabel = ssSplit ? SPLITS.find(s => s.id === ssSplit)?.label : 'Custom';
+  const splitLabel = ssSplits.length
+    ? ssSplits.map(id => MUSCLE_GROUPS.find(g => g.id === id)?.label).join(' + ')
+    : 'Custom';
   saveWorkout({
-    name: `${splitLabel} Superset x${ssWorkout.length}`,
+    name: `${splitLabel} Superset`,
     type: 'superset',
     equipment: [...ssEquipment],
-    split: ssSplit,
+    splits: [...ssSplits],
     exercises: ssWorkout,
   });
   showToast('Workout saved');
@@ -517,7 +530,7 @@ function attachSupersetEvents() {
 function ssLoadWorkout(workout) {
   ssWorkout   = workout.exercises;
   ssEquipment = workout.equipment || [];
-  ssSplit     = workout.split || null;
+  ssSplits    = workout.splits || (workout.split ? [workout.split] : []);
   ssIsCustom  = true;
   switchTab('superset');
   renderSupersetTab();
