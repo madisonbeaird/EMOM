@@ -486,6 +486,15 @@ function ssComplete() {
   clearInterval(ssRestHandle);
   ssRunning = false;
   beepComplete();
+  const splitLabel = ssSplits.length
+    ? ssSplits.map(id => MUSCLE_GROUPS.find(g => g.id === id)?.label).join(' + ')
+    : 'Custom';
+  logWorkout({
+    name: ssIsCustom ? 'Custom Superset' : `${splitLabel} Superset`,
+    type: 'superset',
+    pairs: ssWorkout.length,
+    splits: [...ssSplits],
+  });
   const pane = document.getElementById('tab-superset');
   pane.innerHTML = `
     <div class="complete-screen">

@@ -1,6 +1,6 @@
 // ── App entry point — routing, theme, navigation, saved, sync UI ─────────────
 
-let currentTab  = 'emom';
+let currentTab  = 'home';
 let currentTheme = 'default';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const onboarded = localStorage.getItem('emom_onboarded');
   if (onboarded) {
     showApp();
+    switchTab('home');
   }
 });
 
@@ -61,7 +62,8 @@ function switchTab(tab) {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
 
-  if (tab === 'emom')      renderEmomTab();
+  if (tab === 'home')          renderHomeTab();
+  else if (tab === 'emom')     renderEmomTab();
   else if (tab === 'superset') renderSupersetTab();
   else if (tab === 'saved')    renderSavedTab();
   else if (tab === 'sync')     renderSyncTab();

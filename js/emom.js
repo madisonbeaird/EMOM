@@ -474,6 +474,13 @@ function emomComplete() {
     pushTimerState({ state: 'complete', currentRound: emomRounds, currentExIdx: 0, timerValue: 0 });
   }
   beepComplete();
+  logWorkout({
+    name: emomIsCustom ? 'Custom EMOM' : `EMOM ${emomExercises.length}x${emomRounds}`,
+    type: 'emom',
+    totalMinutes: emomTotalMinutes(),
+    exercises: emomExercises.length,
+    rounds: emomRounds,
+  });
 
   const pane = document.getElementById('tab-emom');
   pane.innerHTML = `
