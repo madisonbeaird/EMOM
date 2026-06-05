@@ -476,8 +476,20 @@ function attachSupersetEvents() {
   document.querySelectorAll('.exercise-card[data-type="ss"]').forEach(card => {
     const index   = parseInt(card.dataset.index);
     const subtype = card.dataset.subtype;
+    // Build a proxy array that writes back into the superset objects
     const arr = ssWorkout.map(ss => subtype === 'A' ? ss.exerciseA : ss.exerciseB);
-    attachSwipe(card, index, 'ss_' + subtype, arr, ssEquipment);
+    const proxyArr = new Proxy(arr, {
+      set(target, prop, value) {
+        target[prop] = value;
+        const i = parseInt(prop);
+        if (!isNaN(i)) {
+          if (subtype === 'A') ssWorkout[i].exerciseA = value;
+          else                 ssWorkout[i].exerciseB = value;
+        }
+        return true;
+      }
+    });
+    attachSwipe(card, index, 'ss_' + subtype, proxyArr, ssEquipment);
   });
 }
 

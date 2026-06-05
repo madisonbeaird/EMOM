@@ -494,6 +494,9 @@ function emomComplete() {
 }
 
 // ── Swipe gestures ────────────────────────────────────────────────────────────
+// Track which alternative index each card slot is currently showing,
+// so repeated swipes cycle through the full list rather than re-randomising.
+const _swipeAltIndex = {};
 
 function attachEmomEvents() {
   document.querySelectorAll('.exercise-card[data-type="emom"]').forEach(card => {
@@ -505,16 +508,18 @@ function attachEmomEvents() {
 function attachSwipe(card, index, type, exerciseArr, equipment) {
   let startX = 0;
   let currentX = 0;
+  const key = `${type}_${index}`;
 
   card.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     currentX = startX;
-    card.style.transition = 'none';
+    card.querySelector('.card-inner').style.transition = 'none';
   }, { passive: true });
 
   card.addEventListener('touchmove', e => {
     currentX = e.touches[0].clientX;
-    card.querySelector('.card-inner').style.transform = `translateX(${currentX - startX}px)`;
+    const dx = currentX - startX;
+    card.querySelector('.card-inner').style.transform = `translateX(${dx}px)`;
   }, { passive: true });
 
   card.addEventListener('touchend', () => {
@@ -522,18 +527,26 @@ function attachSwipe(card, index, type, exerciseArr, equipment) {
     const inner = card.querySelector('.card-inner');
     inner.style.transition = 'transform 0.25s ease';
 
-    if (Math.abs(dx) > 60) {
+    if (Math.abs(dx) > 50) {
       const alts = getAlternatives(exerciseArr[index], equipment);
-      if (alts.length > 0) {
-        exerciseArr[index] = { ...alts[Math.floor(Math.random() * alts.length)] };
-        inner.style.transform = `translateX(${dx > 0 ? '120%' : '-120%'})`;
-        setTimeout(() => {
-          if (type === 'emom') renderEmomTab();
-          else renderSupersetTab();
-        }, 200);
+      if (alts.length === 0) { inner.style.transform = 'translateX(0)'; return; }
+
+      // Advance or retreat through the alternatives list
+      if (!(_swipeAltIndex[key] >= 0)) _swipeAltIndex[key] = -1;
+      if (dx > 0) {
+        // swipe right → previous alternative (wrap)
+        _swipeAltIndex[key] = (_swipeAltIndex[key] - 1 + alts.length) % alts.length;
       } else {
-        inner.style.transform = 'translateX(0)';
+        // swipe left → next alternative
+        _swipeAltIndex[key] = (_swipeAltIndex[key] + 1) % alts.length;
       }
+
+      exerciseArr[index] = { ...alts[_swipeAltIndex[key]] };
+      inner.style.transform = `translateX(${dx > 0 ? '120%' : '-120%'})`;
+      setTimeout(() => {
+        if (type === 'emom') renderEmomTab();
+        else renderSupersetTab();
+      }, 200);
     } else {
       inner.style.transform = 'translateX(0)';
     }
