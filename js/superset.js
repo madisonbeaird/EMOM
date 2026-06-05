@@ -1,13 +1,14 @@
 // ── Superset Tab ─────────────────────────────────────────────────────────────
-let ssEquipment  = [];
-let ssWorkout    = [];   // array of superset objects
-let ssRunning    = false;
-let ssPairIdx    = 0;
-let ssSetIdx     = 0;
-let ssPhase      = 'A';  // 'A' | 'B' | 'rest'
-let ssRestVal    = 0;
-let ssRestHandle = null;
-let ssIsCustom   = false;
+let ssEquipment   = [];
+let ssSplit       = null;   // selected split id
+let ssWorkout     = [];
+let ssRunning     = false;
+let ssPairIdx     = 0;
+let ssSetIdx      = 0;
+let ssPhase       = 'A';
+let ssRestVal     = 0;
+let ssRestHandle  = null;
+let ssIsCustom    = false;
 let ssCustomDraft = [];
 
 function renderSupersetTab() {
@@ -15,12 +16,13 @@ function renderSupersetTab() {
   pane.innerHTML = `
     <div class="section-header">
       <h2>Superset</h2>
-      <span class="section-sub">Sets &amp; Reps</span>
     </div>
     ${ssWorkout.length === 0 ? renderSupersetSetup() : (ssRunning ? renderSupersetActive() : renderSupersetPreview())}
   `;
   attachSupersetEvents();
 }
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
 
 function renderSupersetSetup() {
   return `
@@ -35,21 +37,37 @@ function renderSupersetSetup() {
         `).join('')}
       </div>
 
-      <div class="btn-row" style="margin-top:32px">
-        <button class="btn-primary" onclick="ssGenerate()">Generate Workout</button>
+      <p class="label" style="margin-top:24px">Select Split</p>
+      <div class="split-grid">
+        ${SPLITS.map(s => `
+          <button class="split-chip ${ssSplit === s.id ? 'active' : ''}"
+                  onclick="ssSelectSplit('${s.id}')">
+            <span class="split-chip-label">${s.label}</span>
+            <span class="split-chip-desc">${s.desc}</span>
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="btn-row" style="margin-top:28px">
+        <button class="btn-primary" onclick="ssGenerate()" ${!ssSplit ? 'disabled' : ''}>
+          Generate Workout
+        </button>
         <button class="btn-secondary" onclick="ssOpenCustom()">Custom</button>
       </div>
     </div>
   `;
 }
 
+// ── Preview ───────────────────────────────────────────────────────────────────
+
 function renderSupersetPreview() {
+  const splitLabel = ssSplit ? SPLITS.find(s => s.id === ssSplit)?.label : 'Custom';
   return `
     <div class="workout-preview">
       <div class="preview-header">
         <div>
-          <p class="preview-label">${ssIsCustom ? 'Custom Superset' : 'Suggested Superset'}</p>
-          <p class="preview-sub">${ssWorkout.length} supersets</p>
+          <p class="preview-label">${ssIsCustom ? 'Custom' : splitLabel} Superset</p>
+          <p class="preview-sub">${ssWorkout.length} pairs</p>
         </div>
         <div class="preview-actions">
           <button class="text-btn" onclick="ssSaveCurrent()">Save</button>
@@ -82,9 +100,9 @@ function renderSupersetCard(ss, i) {
           <div class="card-body">
             <div class="card-name">${ss.exerciseA.name}</div>
             <div class="card-reps-row">
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 'A', -1)">−</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i}, -1)">−</button>
               <span class="card-reps" id="ss-sets-a-${i}">${ss.exerciseA.sets} sets</span>
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 'A', 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
               &nbsp;
               <button class="rep-btn" onclick="ssAdjustReps(${i}, 'A', -1)">−</button>
               <span class="card-reps" id="ss-reps-a-${i}">${ss.exerciseA.reps} ${ss.exerciseA.unit || 'reps'}</span>
@@ -104,9 +122,9 @@ function renderSupersetCard(ss, i) {
           <div class="card-body">
             <div class="card-name">${ss.exerciseB.name}</div>
             <div class="card-reps-row">
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 'B', -1)">−</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i}, -1)">−</button>
               <span class="card-reps" id="ss-sets-b-${i}">${ss.exerciseB.sets} sets</span>
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 'B', 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
               &nbsp;
               <button class="rep-btn" onclick="ssAdjustReps(${i}, 'B', -1)">−</button>
               <span class="card-reps" id="ss-reps-b-${i}">${ss.exerciseB.reps} ${ss.exerciseB.unit || 'reps'}</span>
@@ -129,10 +147,13 @@ function renderSupersetCard(ss, i) {
   `;
 }
 
+// ── Active ────────────────────────────────────────────────────────────────────
+
 function renderSupersetActive() {
   const ss = ssWorkout[ssPairIdx];
 
   if (ssPhase === 'rest') {
+    const circ = 2 * Math.PI * 52;
     return `
       <div class="timer-screen">
         <div class="timer-meta">
@@ -143,8 +164,8 @@ function renderSupersetActive() {
           <svg class="timer-ring" viewBox="0 0 120 120">
             <circle class="ring-bg" cx="60" cy="60" r="52"/>
             <circle class="ring-fg" cx="60" cy="60" r="52"
-              stroke-dasharray="${2 * Math.PI * 52}"
-              stroke-dashoffset="${2 * Math.PI * 52 * (1 - ssRestVal / ss.restSeconds)}"
+              stroke-dasharray="${circ}"
+              stroke-dashoffset="${circ * (1 - ssRestVal / ss.restSeconds)}"
               style="transition: stroke-dashoffset 1s linear;"
             />
           </svg>
@@ -165,13 +186,13 @@ function renderSupersetActive() {
   }
 
   const ex = ssPhase === 'A' ? ss.exerciseA : ss.exerciseB;
-  const nextPhase = ssPhase === 'A' ? `${ss.exerciseB.name}` : `Rest ${ss.restSeconds}s`;
+  const nextLabel = ssPhase === 'A' ? ss.exerciseB.name : `Rest ${ss.restSeconds}s`;
 
   return `
     <div class="timer-screen">
       <div class="timer-meta">
         <span class="timer-progress-label">
-          Superset ${ssPairIdx + 1}/${ssWorkout.length} &bull; Set ${ssSetIdx + 1}/${ss.exerciseA.sets}
+          Pair ${ssPairIdx + 1}/${ssWorkout.length} &bull; Set ${ssSetIdx + 1}/${ss.exerciseA.sets}
         </span>
         <button class="text-btn" onclick="ssStop()">End</button>
       </div>
@@ -183,7 +204,7 @@ function renderSupersetActive() {
         <div class="timer-ex-reps">${ex.reps} ${ex.unit || 'reps'}</div>
       </div>
 
-      <div class="timer-next">Up next: <strong>${nextPhase}</strong></div>
+      <div class="timer-next">Up next: <strong>${nextLabel}</strong></div>
 
       <div class="timer-controls">
         <button class="btn-primary btn-lg" onclick="ssDone()">Done</button>
@@ -192,8 +213,9 @@ function renderSupersetActive() {
   `;
 }
 
+// ── Custom Modal ──────────────────────────────────────────────────────────────
+
 function renderSsCustomModal() {
-  const availableExercises = getAvailableExercises(ssEquipment.length ? ssEquipment : []);
   return `
     <div class="modal-backdrop" id="ss-custom-modal" style="display:none">
       <div class="modal">
@@ -207,9 +229,7 @@ function renderSsCustomModal() {
         </div>
         <div class="modal-body">
           <p class="label">Pairs</p>
-          <div id="ss-draft-list">
-            ${renderSsDraftList()}
-          </div>
+          <div id="ss-draft-list">${renderSsDraftList()}</div>
           <button class="btn-secondary" style="margin-top:12px;width:100%" onclick="ssCustomAddPair()">
             + Add Pair
           </button>
@@ -224,9 +244,7 @@ function renderSsCustomModal() {
 }
 
 function renderSsDraftList() {
-  if (ssCustomDraft.length === 0) {
-    return '<p class="empty-msg">No pairs yet. Add a pair to begin.</p>';
-  }
+  if (ssCustomDraft.length === 0) return '<p class="empty-msg">No pairs yet. Tap Add Pair to begin.</p>';
   return ssCustomDraft.map((pair, i) => `
     <div class="draft-pair">
       <div class="draft-pair-header">
@@ -257,7 +275,7 @@ function renderSsDraftList() {
   `).join('');
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+// ── Setup Actions ─────────────────────────────────────────────────────────────
 
 function ssToggleEquipment(id) {
   if (ssEquipment.includes(id)) ssEquipment = ssEquipment.filter(e => e !== id);
@@ -265,15 +283,21 @@ function ssToggleEquipment(id) {
   renderSupersetTab();
 }
 
+function ssSelectSplit(id) {
+  ssSplit = (ssSplit === id) ? null : id;  // tap again to deselect
+  renderSupersetTab();
+}
+
 function ssGenerate() {
-  ssWorkout  = generateSupersetWorkout(ssEquipment);
+  if (!ssSplit) { showToast('Select a split first'); return; }
+  ssWorkout  = generateSupersetWorkout(ssSplit, ssEquipment);
   ssIsCustom = false;
   renderSupersetTab();
 }
 
 function ssReset() {
-  ssWorkout    = [];
-  ssIsCustom   = false;
+  ssWorkout     = [];
+  ssIsCustom    = false;
   ssCustomDraft = [];
   renderSupersetTab();
 }
@@ -285,13 +309,13 @@ function ssAdjustReps(i, side, delta) {
   if (el) el.textContent = `${ex.reps} ${ex.unit || 'reps'}`;
 }
 
-function ssAdjustSets(i, side, delta) {
-  const ss = ssWorkout[i];
-  ss.exerciseA.sets = Math.max(1, ss.exerciseA.sets + delta);
-  ss.exerciseB.sets = ss.exerciseA.sets;
-  ['a', 'b'].forEach(s => {
+function ssAdjustSets(i, delta) {
+  const sets = Math.max(1, ssWorkout[i].exerciseA.sets + delta);
+  ssWorkout[i].exerciseA.sets = sets;
+  ssWorkout[i].exerciseB.sets = sets;
+  ['a','b'].forEach(s => {
     const el = document.getElementById(`ss-sets-${s}-${i}`);
-    if (el) el.textContent = `${ss.exerciseA.sets} sets`;
+    if (el) el.textContent = `${sets} sets`;
   });
 }
 
@@ -302,16 +326,18 @@ function ssAdjustRest(i, delta) {
 }
 
 function ssSaveCurrent() {
+  const splitLabel = ssSplit ? SPLITS.find(s => s.id === ssSplit)?.label : 'Custom';
   saveWorkout({
-    name: `Superset x${ssWorkout.length}`,
+    name: `${splitLabel} Superset x${ssWorkout.length}`,
     type: 'superset',
     equipment: [...ssEquipment],
+    split: ssSplit,
     exercises: ssWorkout,
   });
   showToast('Workout saved');
 }
 
-// ── Custom Superset ───────────────────────────────────────────────────────────
+// ── Custom ────────────────────────────────────────────────────────────────────
 
 function ssOpenCustom() {
   ssCustomDraft = [];
@@ -327,7 +353,7 @@ function ssCancelCustom() {
 
 function ssCustomAddPair() {
   const pool = getAvailableExercises(ssEquipment);
-  if (pool.length < 2) return;
+  if (pool.length < 2) { showToast('Select equipment first'); return; }
   ssCustomDraft.push({
     id: `custom_ss_${ssCustomDraft.length}`,
     exerciseA: { ...pool[0], sets: 3 },
@@ -348,16 +374,15 @@ function ssCustomSetExercise(pairIdx, side, exerciseId) {
   const ex = EXERCISES.find(e => e.id === exerciseId);
   if (!ex) return;
   const pair = ssCustomDraft[pairIdx];
-  const currentSets = pair.exerciseA.sets;
-  if (side === 'A') pair.exerciseA = { ...ex, sets: currentSets };
-  else              pair.exerciseB = { ...ex, sets: currentSets };
+  const sets = pair.exerciseA.sets;
+  if (side === 'A') pair.exerciseA = { ...ex, sets };
+  else              pair.exerciseB = { ...ex, sets };
 }
 
 function ssCustomAdjustSets(i, delta) {
-  const pair = ssCustomDraft[i];
-  const sets = Math.max(1, pair.exerciseA.sets + delta);
-  pair.exerciseA.sets = sets;
-  pair.exerciseB.sets = sets;
+  const sets = Math.max(1, ssCustomDraft[i].exerciseA.sets + delta);
+  ssCustomDraft[i].exerciseA.sets = sets;
+  ssCustomDraft[i].exerciseB.sets = sets;
   const el = document.getElementById(`ss-draft-sets-${i}`);
   if (el) el.textContent = sets;
 }
@@ -369,10 +394,7 @@ function ssCustomAdjustRest(i, delta) {
 }
 
 function ssApplyCustom() {
-  if (ssCustomDraft.length === 0) {
-    showToast('Add at least one pair');
-    return;
-  }
+  if (ssCustomDraft.length === 0) { showToast('Add at least one pair'); return; }
   ssWorkout  = ssCustomDraft.map(p => ({ ...p }));
   ssIsCustom = true;
   ssCancelCustom();
@@ -396,45 +418,41 @@ function ssDone() {
     ssPhase = 'B';
     beepStart();
     renderSupersetTab();
-  } else {
-    // Completed both A and B for this set
-    ssSetIdx++;
-    if (ssSetIdx >= ss.exerciseA.sets) {
-      // All sets done for this superset
-      ssPairIdx++;
-      ssSetIdx = 0;
-      if (ssPairIdx >= ssWorkout.length) {
-        ssComplete();
-        return;
+    return;
+  }
+
+  ssSetIdx++;
+  if (ssSetIdx >= ss.exerciseA.sets) {
+    ssPairIdx++;
+    ssSetIdx = 0;
+    if (ssPairIdx >= ssWorkout.length) { ssComplete(); return; }
+  }
+
+  if (ss.restSeconds > 0) {
+    ssPhase   = 'rest';
+    ssRestVal = ss.restSeconds;
+    renderSupersetTab();
+    ssRestHandle = setInterval(() => {
+      ssRestVal--;
+      const el   = document.querySelector('.timer-seconds');
+      const ring = document.querySelector('.ring-fg');
+      if (el)   el.textContent = ssRestVal;
+      if (ring) {
+        const circ = 2 * Math.PI * 52;
+        ring.style.strokeDashoffset = circ * (1 - ssRestVal / ss.restSeconds);
       }
-    }
-    // Start rest
-    if (ss.restSeconds > 0) {
-      ssPhase   = 'rest';
-      ssRestVal = ss.restSeconds;
-      renderSupersetTab();
-      ssRestHandle = setInterval(() => {
-        ssRestVal--;
-        const el = document.querySelector('.timer-seconds');
-        const ring = document.querySelector('.ring-fg');
-        if (el) el.textContent = ssRestVal;
-        if (ring) {
-          const circ = 2 * Math.PI * 52;
-          ring.style.strokeDashoffset = circ * (1 - ssRestVal / ss.restSeconds);
-        }
-        if (ssRestVal <= 3 && ssRestVal > 0) beepCountdown();
-        if (ssRestVal <= 0) {
-          clearInterval(ssRestHandle);
-          ssPhase = 'A';
-          beepStart();
-          renderSupersetTab();
-        }
-      }, 1000);
-    } else {
-      ssPhase = 'A';
-      beepStart();
-      renderSupersetTab();
-    }
+      if (ssRestVal <= 3 && ssRestVal > 0) beepCountdown();
+      if (ssRestVal <= 0) {
+        clearInterval(ssRestHandle);
+        ssPhase = 'A';
+        beepStart();
+        renderSupersetTab();
+      }
+    }, 1000);
+  } else {
+    ssPhase = 'A';
+    beepStart();
+    renderSupersetTab();
   }
 }
 
@@ -472,23 +490,26 @@ function ssComplete() {
   `;
 }
 
+// ── Swipe ─────────────────────────────────────────────────────────────────────
+
 function attachSupersetEvents() {
   document.querySelectorAll('.exercise-card[data-type="ss"]').forEach(card => {
     const index   = parseInt(card.dataset.index);
     const subtype = card.dataset.subtype;
-    // Build a proxy array that writes back into the superset objects
-    const arr = ssWorkout.map(ss => subtype === 'A' ? ss.exerciseA : ss.exerciseB);
-    const proxyArr = new Proxy(arr, {
-      set(target, prop, value) {
-        target[prop] = value;
-        const i = parseInt(prop);
-        if (!isNaN(i)) {
-          if (subtype === 'A') ssWorkout[i].exerciseA = value;
-          else                 ssWorkout[i].exerciseB = value;
+    const proxyArr = new Proxy(
+      ssWorkout.map(ss => subtype === 'A' ? ss.exerciseA : ss.exerciseB),
+      {
+        set(target, prop, value) {
+          target[prop] = value;
+          const i = parseInt(prop);
+          if (!isNaN(i)) {
+            if (subtype === 'A') ssWorkout[i].exerciseA = value;
+            else                 ssWorkout[i].exerciseB = value;
+          }
+          return true;
         }
-        return true;
       }
-    });
+    );
     attachSwipe(card, index, 'ss_' + subtype, proxyArr, ssEquipment);
   });
 }
@@ -496,6 +517,7 @@ function attachSupersetEvents() {
 function ssLoadWorkout(workout) {
   ssWorkout   = workout.exercises;
   ssEquipment = workout.equipment || [];
+  ssSplit     = workout.split || null;
   ssIsCustom  = true;
   switchTab('superset');
   renderSupersetTab();

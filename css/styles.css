@@ -696,6 +696,50 @@ input, select {
   margin-top: auto;
 }
 
+/* ── Split Grid ───────────────────────────────────────────────────────── */
+
+.split-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.split-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg-2);
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 52px;
+}
+
+.split-chip.active {
+  border-color: var(--accent);
+  background: var(--bg-3);
+}
+
+.split-chip:active { opacity: 0.7; }
+
+.split-chip-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.split-chip.active .split-chip-label {
+  color: var(--accent);
+}
+
+.split-chip-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 0.3px;
+}
+
 /* ── Superset Cards ───────────────────────────────────────────────────── */
 
 .superset-list {

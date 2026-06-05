@@ -29,7 +29,6 @@ function renderEmomTab() {
   pane.innerHTML = `
     <div class="section-header">
       <h2>EMOM</h2>
-      <span class="section-sub">Every Minute On the Minute</span>
     </div>
     ${emomExercises.length === 0 ? renderEmomSetup() : (running ? renderEmomTimer() : renderEmomWorkoutPreview())}
   `;
