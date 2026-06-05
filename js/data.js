@@ -101,18 +101,20 @@ function getAvailableExercises(selectedEquipment) {
   );
 }
 
-// Generate a balanced EMOM workout
-function generateEmomWorkout(selectedEquipment, totalMinutes) {
+// Generate a balanced EMOM workout — returns `exercisesPerRound` unique exercises
+// that will be repeated for `rounds` rounds (total = exercisesPerRound × rounds minutes)
+function generateEmomWorkout(selectedEquipment, exercisesPerRound) {
   const available = getAvailableExercises(selectedEquipment);
-  const categories = ['push', 'pull', 'legs', 'core', 'cardio', 'full_body'];
+  const categories = ['legs', 'push', 'core', 'pull', 'cardio', 'full_body'];
   const pool = {};
   categories.forEach(c => { pool[c] = available.filter(ex => ex.category === c); });
 
-  const sequence = ['legs', 'push', 'core', 'pull', 'cardio', 'legs', 'push', 'full_body', 'core', 'pull'];
-  const workout = [];
+  // Cycle through categories to get a balanced set
+  const sequence = ['legs', 'push', 'core', 'pull', 'cardio', 'full_body', 'legs', 'push', 'core', 'pull'];
+  const exercises = [];
   const used = new Set();
 
-  for (let i = 0; i < totalMinutes; i++) {
+  for (let i = 0; i < exercisesPerRound; i++) {
     const cat = sequence[i % sequence.length];
     let candidates = (pool[cat] || []).filter(ex => !used.has(ex.id));
     if (candidates.length === 0) {
@@ -124,9 +126,9 @@ function generateEmomWorkout(selectedEquipment, totalMinutes) {
     }
     const ex = candidates[Math.floor(Math.random() * candidates.length)];
     used.add(ex.id);
-    workout.push({ ...ex });
+    exercises.push({ ...ex });
   }
-  return workout;
+  return exercises;
 }
 
 // Generate a balanced superset workout (pairs of exercises)

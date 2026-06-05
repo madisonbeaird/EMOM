@@ -1,32 +1,37 @@
 // ── EMOM Tab ─────────────────────────────────────────────────────────────────
-// State
-let emomEquipment   = [];
-let emomWorkout     = [];         // array of exercise objects
-let emomMinutes     = 20;
+// A workout is N exercises repeated for R rounds.
+// Total time = N × R minutes.  Each minute = one exercise.
+
+let emomEquipment        = [];
+let emomExercises        = [];   // the unique exercise set (e.g. 5 exercises)
+let emomRounds           = 5;    // how many times to repeat the set
+let emomExercisesPerRound = 5;   // how many exercises in the set
+
+// Timer state
 let emomRunning     = false;
 let emomPaused      = false;
-let emomCurrentIdx  = 0;
 let emomTimerVal    = 60;
 let emomTimerHandle = null;
-let emomStartTime   = null;
-let emomTotalElapsed = 0;
-let emomIsCustom    = false;
-let emomCustomDraft = [];         // exercises being built in custom mode
+let emomCurrentRound = 0;        // 0-indexed
+let emomCurrentExIdx = 0;        // 0-indexed position within the exercise set
 
-// Touch swipe state per card
-const swipeState = {};
+let emomIsCustom    = false;
+let emomCustomDraft = [];
+
+// Convenience: total minutes
+function emomTotalMinutes() { return emomExercises.length * emomRounds; }
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderEmomTab() {
   const pane = document.getElementById('tab-emom');
+  const running = emomRunning || emomPaused;
   pane.innerHTML = `
     <div class="section-header">
       <h2>EMOM</h2>
       <span class="section-sub">Every Minute On the Minute</span>
     </div>
-
-    ${emomWorkout.length === 0 ? renderEmomSetup() : (emomRunning || emomPaused ? renderEmomTimer() : renderEmomWorkoutPreview())}
+    ${emomExercises.length === 0 ? renderEmomSetup() : (running ? renderEmomTimer() : renderEmomWorkoutPreview())}
   `;
   attachEmomEvents();
 }
@@ -44,14 +49,23 @@ function renderEmomSetup() {
         `).join('')}
       </div>
 
-      <p class="label" style="margin-top:24px">Duration</p>
+      <p class="label" style="margin-top:24px">Exercises per Round</p>
       <div class="duration-row">
-        <button class="round-btn" onclick="emomChangeDuration(-5)">-5</button>
-        <span class="duration-val">${emomMinutes} min</span>
-        <button class="round-btn" onclick="emomChangeDuration(5)">+5</button>
+        <button class="round-btn" onclick="emomChangeExercises(-1)">−</button>
+        <span class="duration-val">${emomExercisesPerRound}</span>
+        <button class="round-btn" onclick="emomChangeExercises(1)">+</button>
       </div>
 
-      <div class="btn-row" style="margin-top:32px">
+      <p class="label" style="margin-top:20px">Rounds</p>
+      <div class="duration-row">
+        <button class="round-btn" onclick="emomChangeRounds(-1)">−</button>
+        <span class="duration-val">${emomRounds}</span>
+        <button class="round-btn" onclick="emomChangeRounds(1)">+</button>
+      </div>
+
+      <div class="total-time-pill">${emomExercisesPerRound * emomRounds} min total</div>
+
+      <div class="btn-row" style="margin-top:28px">
         <button class="btn-primary" onclick="emomGenerate()">Generate Workout</button>
         <button class="btn-secondary" onclick="emomOpenCustom()">Custom</button>
       </div>
@@ -60,12 +74,15 @@ function renderEmomSetup() {
 }
 
 function renderEmomWorkoutPreview() {
+  const total = emomTotalMinutes();
   return `
     <div class="workout-preview">
       <div class="preview-header">
         <div>
           <p class="preview-label">${emomIsCustom ? 'Custom Workout' : 'Suggested Workout'}</p>
-          <p class="preview-sub">${emomWorkout.length} exercises &bull; ${emomMinutes} min</p>
+          <p class="preview-sub">
+            ${emomExercises.length} exercises &times; ${emomRounds} rounds &bull; ${total} min
+          </p>
         </div>
         <div class="preview-actions">
           <button class="text-btn" onclick="emomSaveCurrent()">Save</button>
@@ -73,8 +90,10 @@ function renderEmomWorkoutPreview() {
         </div>
       </div>
 
+      <div class="rounds-badge">${emomRounds} &times;</div>
+
       <div class="exercise-list" id="emom-exercise-list">
-        ${emomWorkout.map((ex, i) => renderExerciseCard(ex, i, 'emom')).join('')}
+        ${emomExercises.map((ex, i) => renderExerciseCard(ex, i, 'emom')).join('')}
       </div>
 
       <button class="btn-primary btn-lg" style="margin-top:24px" onclick="emomStart()">
@@ -102,24 +121,25 @@ function renderExerciseCard(ex, index, type) {
         </div>
         <div class="card-swipe-hint">swipe</div>
       </div>
-      <div class="swipe-track"></div>
     </div>
   `;
 }
 
 function renderEmomTimer() {
-  const ex = emomWorkout[emomCurrentIdx];
-  const next = emomWorkout[emomCurrentIdx + 1];
-  const progress = (60 - emomTimerVal) / 60;
+  const ex = emomExercises[emomCurrentExIdx];
+  const nextExIdx = (emomCurrentExIdx + 1) % emomExercises.length;
+  const nextRound = emomCurrentExIdx + 1 >= emomExercises.length ? emomCurrentRound + 1 : emomCurrentRound;
+  const isLastEx  = emomCurrentRound >= emomRounds - 1 && emomCurrentExIdx >= emomExercises.length - 1;
   const circumference = 2 * Math.PI * 52;
-  const offset = circumference * (1 - progress);
+  const offset = circumference * (emomTimerVal / 60);
 
   return `
     <div class="timer-screen">
       <div class="timer-meta">
-        <span class="timer-progress-label">
-          ${emomCurrentIdx + 1} / ${emomWorkout.length}
-        </span>
+        <div class="timer-round-info">
+          <span class="timer-round-label">Round ${emomCurrentRound + 1} / ${emomRounds}</span>
+          <span class="timer-ex-counter">${emomCurrentExIdx + 1} / ${emomExercises.length}</span>
+        </div>
         <button class="text-btn" onclick="emomStop()">End</button>
       </div>
 
@@ -143,7 +163,10 @@ function renderEmomTimer() {
         <div class="timer-ex-reps">${ex.reps} ${ex.unit || 'reps'}</div>
       </div>
 
-      ${next ? `<div class="timer-next">Up next: <strong>${next.name}</strong></div>` : '<div class="timer-next">Last exercise</div>'}
+      ${isLastEx
+        ? '<div class="timer-next">Last exercise</div>'
+        : `<div class="timer-next">Up next: <strong>${emomExercises[nextExIdx].name}</strong>${nextRound > emomCurrentRound ? ' &mdash; Round ' + (nextRound + 1) : ''}</div>`
+      }
 
       <div class="timer-controls">
         <button class="btn-secondary" onclick="emomTogglePause()">
@@ -166,25 +189,26 @@ function renderCustomModal() {
             </svg>
           </button>
         </div>
-
         <div class="modal-body">
           <p class="label">Workout Name</p>
           <input class="text-input" id="custom-name" type="text" placeholder="My Workout" />
 
-          <p class="label" style="margin-top:16px">Exercises</p>
-          <div id="custom-draft-list">
-            ${emomCustomDraft.map((ex, i) => `
-              <div class="draft-item">
-                <span class="draft-name">${ex.name}</span>
-                <div class="draft-controls">
-                  <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, -1)">−</button>
-                  <span id="draft-reps-${i}">${ex.reps}</span>
-                  <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, 1)">+</button>
-                  <button class="rep-btn danger" onclick="emomCustomRemove(${i})">×</button>
-                </div>
+          <div style="display:flex;gap:16px;margin-top:16px;align-items:flex-end">
+            <div style="flex:1">
+              <p class="label">Rounds</p>
+              <div class="duration-row" style="margin-top:0">
+                <button class="round-btn sm" onclick="emomCustomChangeRounds(-1)">−</button>
+                <span class="duration-val" id="custom-rounds-val" style="font-size:20px">${emomRounds}</span>
+                <button class="round-btn sm" onclick="emomCustomChangeRounds(1)">+</button>
               </div>
-            `).join('')}
+            </div>
+            <div style="flex:1">
+              <p class="label" id="custom-total-label">Total: ${emomCustomDraft.length * emomRounds} min</p>
+            </div>
           </div>
+
+          <p class="label" style="margin-top:16px">Exercises</p>
+          <div id="custom-draft-list">${renderDraftList()}</div>
 
           <p class="label" style="margin-top:16px">Add Exercise</p>
           <input class="text-input" id="exercise-search" type="text" placeholder="Search..."
@@ -193,7 +217,6 @@ function renderCustomModal() {
             ${renderSearchResults('')}
           </div>
         </div>
-
         <div class="modal-footer">
           <button class="btn-secondary" onclick="emomCloseCustom()">Cancel</button>
           <button class="btn-primary" onclick="emomApplyCustom()">Use Workout</button>
@@ -203,12 +226,26 @@ function renderCustomModal() {
   `;
 }
 
+function renderDraftList() {
+  if (emomCustomDraft.length === 0) return '<p class="empty-msg">No exercises yet.</p>';
+  return emomCustomDraft.map((ex, i) => `
+    <div class="draft-item">
+      <span class="draft-name">${ex.name}</span>
+      <div class="draft-controls">
+        <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, -1)">−</button>
+        <span id="draft-reps-${i}">${ex.reps}</span>
+        <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, 1)">+</button>
+        <button class="rep-btn danger" onclick="emomCustomRemove(${i})">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 function renderSearchResults(query) {
   const pool = getAvailableExercises(emomEquipment.length ? emomEquipment : []);
   const results = query
     ? pool.filter(ex => ex.name.toLowerCase().includes(query.toLowerCase()))
     : pool.slice(0, 12);
-
   return results.map(ex => `
     <button class="search-item" onclick="emomCustomAdd('${ex.id}')">
       ${ex.name} <span class="search-item-cat">${ex.category}</span>
@@ -216,53 +253,53 @@ function renderSearchResults(query) {
   `).join('') || '<p class="empty-msg">No matches</p>';
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+// ── Setup Actions ─────────────────────────────────────────────────────────────
 
 function emomToggleEquipment(id) {
-  if (emomEquipment.includes(id)) {
-    emomEquipment = emomEquipment.filter(e => e !== id);
-  } else {
-    emomEquipment.push(id);
-  }
+  if (emomEquipment.includes(id)) emomEquipment = emomEquipment.filter(e => e !== id);
+  else emomEquipment.push(id);
   renderEmomTab();
 }
 
-function emomChangeDuration(delta) {
-  emomMinutes = Math.max(5, Math.min(60, emomMinutes + delta));
+function emomChangeExercises(delta) {
+  emomExercisesPerRound = Math.max(1, Math.min(10, emomExercisesPerRound + delta));
+  renderEmomTab();
+}
+
+function emomChangeRounds(delta) {
+  emomRounds = Math.max(1, Math.min(20, emomRounds + delta));
   renderEmomTab();
 }
 
 function emomGenerate() {
-  emomWorkout  = generateEmomWorkout(emomEquipment, emomMinutes);
-  emomIsCustom = false;
+  emomExercises = generateEmomWorkout(emomEquipment, emomExercisesPerRound);
+  emomIsCustom  = false;
   renderEmomTab();
 }
 
 function emomReset() {
-  emomWorkout = [];
-  emomIsCustom = false;
+  emomExercises   = [];
+  emomIsCustom    = false;
   emomCustomDraft = [];
   renderEmomTab();
 }
 
 function emomAdjustReps(index, delta) {
-  const ex = emomWorkout[index];
-  ex.reps = Math.max(1, ex.reps + delta);
+  emomExercises[index].reps = Math.max(1, emomExercises[index].reps + delta);
   const el = document.getElementById(`emom-reps-${index}`);
-  if (el) el.textContent = `${ex.reps} ${ex.unit || 'reps'}`;
+  if (el) el.textContent = `${emomExercises[index].reps} ${emomExercises[index].unit || 'reps'}`;
 }
 
 function emomSaveCurrent() {
-  const name = emomIsCustom
-    ? (document.getElementById('custom-name')?.value || 'Custom EMOM')
-    : `EMOM ${emomMinutes}min`;
-
   saveWorkout({
-    name,
+    name: emomIsCustom
+      ? (document.getElementById('custom-name')?.value || 'Custom EMOM')
+      : `EMOM ${emomExercises.length}x${emomRounds}`,
     type: 'emom',
     equipment: [...emomEquipment],
-    exercises: emomWorkout.map(ex => ({ ...ex })),
-    totalMinutes: emomMinutes,
+    exercises: emomExercises.map(ex => ({ ...ex })),
+    rounds: emomRounds,
+    exercisesPerRound: emomExercises.length,
   });
   showToast('Workout saved');
 }
@@ -281,6 +318,14 @@ function emomCloseCustom() {
   if (modal) modal.style.display = 'none';
 }
 
+function emomCustomChangeRounds(delta) {
+  emomRounds = Math.max(1, Math.min(20, emomRounds + delta));
+  const el = document.getElementById('custom-rounds-val');
+  if (el) el.textContent = emomRounds;
+  const label = document.getElementById('custom-total-label');
+  if (label) label.textContent = `Total: ${emomCustomDraft.length * emomRounds} min`;
+}
+
 function emomFilterSearch(q) {
   const el = document.getElementById('exercise-search-results');
   if (el) el.innerHTML = renderSearchResults(q);
@@ -291,17 +336,9 @@ function emomCustomAdd(exerciseId) {
   if (!ex) return;
   emomCustomDraft.push({ ...ex });
   const el = document.getElementById('custom-draft-list');
-  if (el) el.innerHTML = emomCustomDraft.map((e, i) => `
-    <div class="draft-item">
-      <span class="draft-name">${e.name}</span>
-      <div class="draft-controls">
-        <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, -1)">−</button>
-        <span id="draft-reps-${i}">${e.reps}</span>
-        <button class="rep-btn" onclick="emomCustomAdjustReps(${i}, 1)">+</button>
-        <button class="rep-btn danger" onclick="emomCustomRemove(${i})">×</button>
-      </div>
-    </div>
-  `).join('');
+  if (el) el.innerHTML = renderDraftList();
+  const label = document.getElementById('custom-total-label');
+  if (label) label.textContent = `Total: ${emomCustomDraft.length * emomRounds} min`;
 }
 
 function emomCustomAdjustReps(i, delta) {
@@ -313,38 +350,29 @@ function emomCustomAdjustReps(i, delta) {
 function emomCustomRemove(i) {
   emomCustomDraft.splice(i, 1);
   const el = document.getElementById('custom-draft-list');
-  if (el) el.innerHTML = emomCustomDraft.map((e, idx) => `
-    <div class="draft-item">
-      <span class="draft-name">${e.name}</span>
-      <div class="draft-controls">
-        <button class="rep-btn" onclick="emomCustomAdjustReps(${idx}, -1)">−</button>
-        <span id="draft-reps-${idx}">${e.reps}</span>
-        <button class="rep-btn" onclick="emomCustomAdjustReps(${idx}, 1)">+</button>
-        <button class="rep-btn danger" onclick="emomCustomRemove(${idx})">×</button>
-      </div>
-    </div>
-  `).join('');
+  if (el) el.innerHTML = renderDraftList();
+  const label = document.getElementById('custom-total-label');
+  if (label) label.textContent = `Total: ${emomCustomDraft.length * emomRounds} min`;
 }
 
 function emomApplyCustom() {
-  if (emomCustomDraft.length === 0) {
-    showToast('Add at least one exercise');
-    return;
-  }
-  emomWorkout  = [...emomCustomDraft];
-  emomMinutes  = emomWorkout.length;
-  emomIsCustom = true;
+  if (emomCustomDraft.length === 0) { showToast('Add at least one exercise'); return; }
+  emomExercises        = [...emomCustomDraft];
+  emomExercisesPerRound = emomExercises.length;
+  emomIsCustom          = true;
   emomCloseCustom();
   renderEmomTab();
 }
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
 
-function emomStart(startFrom = 0) {
-  emomCurrentIdx = startFrom;
-  emomTimerVal   = 60;
-  emomRunning    = true;
-  emomPaused     = false;
+function emomStart() {
+  emomCurrentRound  = 0;
+  emomCurrentExIdx  = 0;
+  emomTimerVal      = 60;
+  emomRunning       = true;
+  emomPaused        = false;
+  requestWakeLock();
   renderEmomTab();
   beepStart();
   emomTick();
@@ -356,61 +384,71 @@ function emomTick() {
     if (emomPaused) return;
     emomTimerVal--;
 
-    // Countdown beeps
-    if (emomTimerVal <= 3 && emomTimerVal > 0) {
-      beepCountdown();
-    }
+    if (emomTimerVal <= 3 && emomTimerVal > 0) beepCountdown();
 
-    // Update sync if hosting
     if (getSyncStateLabel() === 'hosting' && getIsHost()) {
       pushTimerState({
         state: 'active',
-        currentExercise: emomCurrentIdx,
+        currentRound: emomCurrentRound,
+        currentExIdx: emomCurrentExIdx,
         timerValue: emomTimerVal,
       });
     }
 
     if (emomTimerVal <= 0) {
       beepEnd();
-      emomCurrentIdx++;
-
-      if (emomCurrentIdx >= emomWorkout.length) {
-        emomComplete();
-        return;
-      }
-
-      emomTimerVal = 60;
-      beepStart();
+      emomAdvance();
+      return;
     }
 
     updateTimerDisplay();
   }, 1000);
 }
 
+function emomAdvance() {
+  emomCurrentExIdx++;
+  if (emomCurrentExIdx >= emomExercises.length) {
+    emomCurrentExIdx = 0;
+    emomCurrentRound++;
+  }
+
+  if (emomCurrentRound >= emomRounds) {
+    emomComplete();
+    return;
+  }
+
+  emomTimerVal = 60;
+  beepStart();
+  updateTimerDisplay();
+}
+
 function updateTimerDisplay() {
-  const secondsEl = document.querySelector('.timer-seconds');
-  const progressLabel = document.querySelector('.timer-progress-label');
-  const ringFg = document.querySelector('.ring-fg');
-  const exName = document.querySelector('.timer-ex-name');
-  const exReps = document.querySelector('.timer-ex-reps');
-  const nextEl = document.querySelector('.timer-next');
+  const secondsEl    = document.querySelector('.timer-seconds');
+  const roundLabel   = document.querySelector('.timer-round-label');
+  const exCounter    = document.querySelector('.timer-ex-counter');
+  const ringFg       = document.querySelector('.ring-fg');
+  const exName       = document.querySelector('.timer-ex-name');
+  const exReps       = document.querySelector('.timer-ex-reps');
+  const nextEl       = document.querySelector('.timer-next');
 
   if (!secondsEl) return;
 
-  const ex = emomWorkout[emomCurrentIdx];
-  const next = emomWorkout[emomCurrentIdx + 1];
+  const ex = emomExercises[emomCurrentExIdx];
+  const nextExIdx = (emomCurrentExIdx + 1) % emomExercises.length;
+  const nextRound = emomCurrentExIdx + 1 >= emomExercises.length ? emomCurrentRound + 1 : emomCurrentRound;
+  const isLastEx  = emomCurrentRound >= emomRounds - 1 && emomCurrentExIdx >= emomExercises.length - 1;
   const circumference = 2 * Math.PI * 52;
-  const progress = (60 - emomTimerVal) / 60;
 
   secondsEl.textContent = emomTimerVal;
-  if (progressLabel) progressLabel.textContent = `${emomCurrentIdx + 1} / ${emomWorkout.length}`;
-  if (ringFg) ringFg.style.strokeDashoffset = circumference * (1 - progress);
-  if (exName) exName.textContent = ex.name;
-  if (exReps) exReps.textContent = `${ex.reps} ${ex.unit || 'reps'}`;
+  if (roundLabel) roundLabel.textContent = `Round ${emomCurrentRound + 1} / ${emomRounds}`;
+  if (exCounter)  exCounter.textContent  = `${emomCurrentExIdx + 1} / ${emomExercises.length}`;
+  if (ringFg)     ringFg.style.strokeDashoffset = circumference * (emomTimerVal / 60);
+  if (exName)     exName.textContent = ex.name;
+  if (exReps)     exReps.textContent = `${ex.reps} ${ex.unit || 'reps'}`;
   if (nextEl) {
-    nextEl.innerHTML = next
-      ? `Up next: <strong>${next.name}</strong>`
-      : 'Last exercise';
+    nextEl.innerHTML = isLastEx
+      ? 'Last exercise'
+      : `Up next: <strong>${emomExercises[nextExIdx].name}</strong>${nextRound > emomCurrentRound ? ' &mdash; Round ' + (nextRound + 1) : ''}`;
   }
 }
 
@@ -424,6 +462,7 @@ function emomStop() {
   clearInterval(emomTimerHandle);
   emomRunning = false;
   emomPaused  = false;
+  releaseWakeLock();
   if (getSyncStateLabel() === 'hosting') leaveRoom();
   renderEmomTab();
 }
@@ -431,8 +470,9 @@ function emomStop() {
 function emomComplete() {
   clearInterval(emomTimerHandle);
   emomRunning = false;
+  releaseWakeLock();
   if (getSyncStateLabel() === 'hosting') {
-    pushTimerState({ state: 'complete', currentExercise: emomCurrentIdx, timerValue: 0 });
+    pushTimerState({ state: 'complete', currentRound: emomRounds, currentExIdx: 0, timerValue: 0 });
   }
   beepComplete();
 
@@ -445,7 +485,7 @@ function emomComplete() {
         </svg>
       </div>
       <h2 class="complete-title">Workout Complete</h2>
-      <p class="complete-sub">${emomWorkout.length} exercises &bull; ${emomMinutes} min</p>
+      <p class="complete-sub">${emomExercises.length} exercises &times; ${emomRounds} rounds &bull; ${emomTotalMinutes()} min</p>
       <button class="btn-primary btn-lg" style="margin-top:40px" onclick="emomReset()">
         New Workout
       </button>
@@ -453,16 +493,16 @@ function emomComplete() {
   `;
 }
 
-// ── Swipe gestures on exercise cards ─────────────────────────────────────────
+// ── Swipe gestures ────────────────────────────────────────────────────────────
 
 function attachEmomEvents() {
   document.querySelectorAll('.exercise-card[data-type="emom"]').forEach(card => {
     const index = parseInt(card.dataset.index);
-    attachSwipe(card, index, 'emom', emomWorkout, emomEquipment);
+    attachSwipe(card, index, 'emom', emomExercises, emomEquipment);
   });
 }
 
-function attachSwipe(card, index, type, workoutArr, equipment) {
+function attachSwipe(card, index, type, exerciseArr, equipment) {
   let startX = 0;
   let currentX = 0;
 
@@ -474,8 +514,7 @@ function attachSwipe(card, index, type, workoutArr, equipment) {
 
   card.addEventListener('touchmove', e => {
     currentX = e.touches[0].clientX;
-    const dx = currentX - startX;
-    card.querySelector('.card-inner').style.transform = `translateX(${dx}px)`;
+    card.querySelector('.card-inner').style.transform = `translateX(${currentX - startX}px)`;
   }, { passive: true });
 
   card.addEventListener('touchend', () => {
@@ -484,15 +523,13 @@ function attachSwipe(card, index, type, workoutArr, equipment) {
     inner.style.transition = 'transform 0.25s ease';
 
     if (Math.abs(dx) > 60) {
-      // Swap to an alternative exercise
-      const alts = getAlternatives(workoutArr[index], equipment);
+      const alts = getAlternatives(exerciseArr[index], equipment);
       if (alts.length > 0) {
-        const alt = alts[Math.floor(Math.random() * alts.length)];
-        workoutArr[index] = { ...alt };
+        exerciseArr[index] = { ...alts[Math.floor(Math.random() * alts.length)] };
         inner.style.transform = `translateX(${dx > 0 ? '120%' : '-120%'})`;
         setTimeout(() => {
           if (type === 'emom') renderEmomTab();
-          else if (type === 'superset') renderSupersetTab();
+          else renderSupersetTab();
         }, 200);
       } else {
         inner.style.transform = 'translateX(0)';
@@ -503,34 +540,35 @@ function attachSwipe(card, index, type, workoutArr, equipment) {
   });
 }
 
-// Load a saved workout into the EMOM tab
+// ── Load / Sync ───────────────────────────────────────────────────────────────
+
 function emomLoadWorkout(workout) {
-  emomWorkout   = workout.exercises.map(ex => ({ ...ex }));
-  emomMinutes   = workout.totalMinutes || workout.exercises.length;
-  emomEquipment = workout.equipment || [];
-  emomIsCustom  = true;
+  emomExercises         = workout.exercises.map(ex => ({ ...ex }));
+  emomRounds            = workout.rounds || 5;
+  emomExercisesPerRound = emomExercises.length;
+  emomEquipment         = workout.equipment || [];
+  emomIsCustom          = true;
   switchTab('emom');
   renderEmomTab();
 }
 
-// Called by sync join to mirror host's workout
-function emomStartSynced(workout, startIdx, timerVal) {
-  emomWorkout    = workout.exercises.map(ex => ({ ...ex }));
-  emomMinutes    = workout.totalMinutes || workout.exercises.length;
-  emomCurrentIdx = startIdx || 0;
-  emomTimerVal   = timerVal || 60;
-  emomRunning    = true;
-  emomPaused     = false;
+function emomStartSynced(workout, round, exIdx, timerVal) {
+  emomExercises         = workout.exercises.map(ex => ({ ...ex }));
+  emomRounds            = workout.rounds || 5;
+  emomExercisesPerRound = emomExercises.length;
+  emomCurrentRound      = round  || 0;
+  emomCurrentExIdx      = exIdx  || 0;
+  emomTimerVal          = timerVal || 60;
+  emomRunning           = true;
+  emomPaused            = false;
   renderEmomTab();
 }
 
 function emomSyncUpdate(data) {
   if (!emomRunning) return;
-  emomCurrentIdx = data.currentExercise;
-  emomTimerVal   = data.timerValue;
-  if (data.state === 'complete') {
-    emomComplete();
-    return;
-  }
+  if (data.state === 'complete') { emomComplete(); return; }
+  emomCurrentRound = data.currentRound || 0;
+  emomCurrentExIdx = data.currentExIdx || 0;
+  emomTimerVal     = data.timerValue;
   updateTimerDisplay();
 }

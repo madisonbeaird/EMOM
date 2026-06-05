@@ -1104,6 +1104,47 @@ input, select {
   flex-direction: column;
 }
 
+.total-time-pill {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  align-self: flex-start;
+}
+
+.rounds-badge {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.timer-round-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timer-round-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.timer-ex-counter {
+  font-size: 12px;
+  color: var(--text-3);
+  letter-spacing: 0.5px;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar { width: 0; background: transparent; }
