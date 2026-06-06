@@ -119,13 +119,10 @@ function renderDcActive() {
           </div>
         </div>
 
-        ${dcFlipped ? `
-          <button class="btn-primary btn-lg dc-next-btn" onclick="dcNext()">
-            ${dcIdx < dcDeck.length - 1 ? 'Next Card' : 'Finish'}
-          </button>
-        ` : `
-          <div class="dc-tap-hint">Tap to reveal</div>
-        `}
+        ${dcFlipped
+          ? `<div class="dc-tap-hint">Tap for next card</div>`
+          : `<div class="dc-tap-hint">Tap to reveal</div>`
+        }
       </div>
     </div>
   `;
@@ -179,7 +176,7 @@ function attachDcFlip() {
 }
 
 function dcFlipCard() {
-  if (dcFlipped) return;
+  if (dcFlipped) { dcNext(); return; }
   dcFlipped = true;
   const cardEl = document.getElementById('dc-card');
   if (cardEl) cardEl.classList.add('flipped');
