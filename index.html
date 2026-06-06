@@ -62,6 +62,7 @@
       <div id="tab-home"      class="tab-pane active"></div>
       <div id="tab-emom"      class="tab-pane"></div>
       <div id="tab-superset"  class="tab-pane"></div>
+      <div id="tab-cards"     class="tab-pane"></div>
       <div id="tab-saved"     class="tab-pane"></div>
       <div id="tab-sync"      class="tab-pane"></div>
     </main>
@@ -93,6 +94,14 @@
         <span>Superset</span>
       </button>
 
+      <button class="nav-btn" data-tab="cards" onclick="switchTab('cards')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="3" width="16" height="18" rx="2"/>
+          <path d="M12 8v4M10 10h4"/>
+        </svg>
+        <span>Cards</span>
+      </button>
+
       <button class="nav-btn" data-tab="saved" onclick="switchTab('saved')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -113,11 +122,12 @@
     </nav>
   </div>
 
-  <!-- ── Firebase SDK (loaded before config) ────────────────────────────── -->
+  <!-- ── PeerJS (WebRTC sync — no account needed) ──────────────────────── -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- ── Firebase (optional — community sharing only) ──────────────────── -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
-  <!-- ── App scripts ────────────────────────────────────────────────────── -->
   <script src="firebase-config.js"></script>
   <script src="js/data.js"></script>
   <script src="js/audio.js"></script>
@@ -126,6 +136,7 @@
   <script src="js/sync.js"></script>
   <script src="js/emom.js"></script>
   <script src="js/superset.js"></script>
+  <script src="js/cards.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

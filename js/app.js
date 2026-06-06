@@ -65,6 +65,7 @@ function switchTab(tab) {
   if (tab === 'home')          renderHomeTab();
   else if (tab === 'emom')     renderEmomTab();
   else if (tab === 'superset') renderSupersetTab();
+  else if (tab === 'cards')    renderCardsTab();
   else if (tab === 'saved')    renderSavedTab();
   else if (tab === 'sync')     renderSyncTab();
 }
