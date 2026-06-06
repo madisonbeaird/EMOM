@@ -209,8 +209,8 @@ function generateEmomWorkout(selectedEquipment, count) {
   return exercises;
 }
 
-// Superset: 4 pairs for selected muscle groups
-function generateSupersetWorkout(selectedMuscleIds, selectedEquipment) {
+// Superset: generates numPairs pairs for selected muscle groups
+function generateSupersetWorkout(selectedMuscleIds, selectedEquipment, numPairs = 4) {
   const pool = getExercisesForMuscles(selectedMuscleIds, selectedEquipment);
   const used = new Set();
 
@@ -221,7 +221,7 @@ function generateSupersetWorkout(selectedMuscleIds, selectedEquipment) {
   });
 
   const workout  = [];
-  const NUM_PAIRS = 4;
+  const NUM_PAIRS = numPairs;
 
   for (let i = 0; i < NUM_PAIRS; i++) {
     const idxA   = i % selectedMuscleIds.length;

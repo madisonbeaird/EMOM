@@ -787,6 +787,78 @@ input, select {
 
 .rest-row .label { margin: 0; }
 
+/* ── Superset Active Screen (no timer) ───────────────────────────────── */
+
+.ss-active-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 70vh;
+  gap: 0;
+}
+
+.ss-active-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.ss-exercise-block {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.ss-exercise-name {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+}
+
+.ss-exercise-reps {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 10px;
+}
+
+.ss-active-controls {
+  margin-top: auto;
+  padding-top: 32px;
+}
+
+.ss-rest-block {
+  text-align: center;
+  padding: 40px 0 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ss-rest-label {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.ss-rest-sub {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+
+.ss-next-preview {
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
 /* ── Superset Active Phase ────────────────────────────────────────────── */
 
 .ss-phase-badge {
