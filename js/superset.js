@@ -5,11 +5,20 @@ let ssNumPairs    = 4;
 let ssWorkout     = [];
 let ssRunning     = false;
 let ssPairIdx     = 0;
-let ssPhase       = 'A';      // 'A' | 'B'
-let ssProgressA   = [];       // sets of A completed per superset index
-let ssProgressB   = [];       // sets of B completed per superset index
+let ssPhase       = 'A';    // 'A' | 'B'  (internal only — not shown to user)
+let ssProgressA   = [];     // sets of first exercise completed per superset
+let ssProgressB   = [];     // sets of second exercise completed per superset
 let ssIsCustom    = false;
 let ssCustomDraft = [];
+
+function fillPct(done, total) {
+  return (total > 0 && done > 0) ? Math.min(100, Math.round((done / total) * 100)) : 0;
+}
+
+function updateTubeFill(id, done, total) {
+  const el = document.getElementById(id);
+  if (el) el.style.width = `${fillPct(done, total)}%`;
+}
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -106,15 +115,16 @@ function renderSupersetCard(ss, i) {
   return `
     <div class="superset-card">
       <div class="superset-label">Superset ${i + 1}</div>
+
       <div class="exercise-card" id="card-ss-a-${i}" data-index="${i}" data-subtype="A" data-type="ss">
         <div class="card-inner">
-          <div class="card-num">A</div>
+          <div class="card-num">${(i * 2) + 1}</div>
           <div class="card-body">
             <div class="card-name">${ss.exerciseA.name}</div>
             <div class="card-reps-row">
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, -1)">−</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i},-1)">−</button>
               <span class="card-reps" id="ss-sets-a-${i}">${ss.exerciseA.sets} sets</span>
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i},1)">+</button>
               &nbsp;
               <button class="rep-btn" onclick="ssAdjustReps(${i},'A',-1)">−</button>
               <span class="card-reps" id="ss-reps-a-${i}">${ss.exerciseA.reps} ${ss.exerciseA.unit||'reps'}</span>
@@ -124,16 +134,18 @@ function renderSupersetCard(ss, i) {
           <div class="card-swipe-hint">swipe</div>
         </div>
       </div>
+
       <div class="superset-divider">+</div>
+
       <div class="exercise-card" id="card-ss-b-${i}" data-index="${i}" data-subtype="B" data-type="ss">
         <div class="card-inner">
-          <div class="card-num">B</div>
+          <div class="card-num">${(i * 2) + 2}</div>
           <div class="card-body">
             <div class="card-name">${ss.exerciseB.name}</div>
             <div class="card-reps-row">
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, -1)">−</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i},-1)">−</button>
               <span class="card-reps" id="ss-sets-b-${i}">${ss.exerciseB.sets} sets</span>
-              <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustSets(${i},1)">+</button>
               &nbsp;
               <button class="rep-btn" onclick="ssAdjustReps(${i},'B',-1)">−</button>
               <span class="card-reps" id="ss-reps-b-${i}">${ss.exerciseB.reps} ${ss.exerciseB.unit||'reps'}</span>
@@ -147,17 +159,7 @@ function renderSupersetCard(ss, i) {
   `;
 }
 
-// ── Active Workout — full scrollable list, progress fill on exercise names ────
-
-function getProgressStyle(done, total) {
-  if (!done || done <= 0) return '';
-  const pct = Math.min(100, Math.round((done / total) * 100));
-  if (pct >= 100) return 'color: var(--accent);';
-  // Gradient left-to-right: accent fills proportionally, rest stays dim
-  return `background: linear-gradient(to right, var(--accent) ${pct}%, var(--text-2) ${pct}%);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-clip: text;`;
-}
+// ── Active Workout — full scrollable list, fill-text progress ─────────────────
 
 function isPairComplete(i) {
   if (!ssWorkout[i]) return false;
@@ -166,8 +168,8 @@ function isPairComplete(i) {
 }
 
 function renderSupersetActive() {
-  const ss      = ssWorkout[ssPairIdx];
-  const setNum  = ssPhase === 'A'
+  const ss     = ssWorkout[ssPairIdx];
+  const setNum = ssPhase === 'A'
     ? ssProgressA[ssPairIdx] + 1
     : ssProgressB[ssPairIdx] + 1;
 
@@ -176,7 +178,7 @@ function renderSupersetActive() {
       <div class="ss-live-header">
         <div>
           <div class="timer-round-label">Superset ${ssPairIdx + 1} / ${ssWorkout.length}</div>
-          <div class="timer-ex-counter">Set ${setNum} of ${ss.exerciseA.sets} &bull; ${ssPhase}</div>
+          <div class="timer-ex-counter">Set ${setNum} of ${ss.exerciseA.sets}</div>
         </div>
         <button class="text-btn" onclick="ssStop()">End</button>
       </div>
@@ -189,12 +191,9 @@ function renderSupersetActive() {
 
             <div class="ss-live-exercise ${i === ssPairIdx && ssPhase === 'A' ? 'active' : ''}"
                  id="ss-live-ex-a-${i}">
-              <span class="ss-live-badge ${i === ssPairIdx && ssPhase === 'A' ? 'badge-active' : ''}">A</span>
+              <div class="ss-tube-fill" id="ss-fill-a-${i}" style="width:${fillPct(ssProgressA[i], pair.exerciseA.sets)}%"></div>
               <div class="ss-live-ex-info">
-                <span class="ss-live-name" id="ss-live-name-a-${i}"
-                      style="${getProgressStyle(ssProgressA[i], pair.exerciseA.sets)}">
-                  ${pair.exerciseA.name}
-                </span>
+                <span class="ss-live-name">${pair.exerciseA.name}</span>
                 <span class="ss-live-detail">${pair.exerciseA.reps} ${pair.exerciseA.unit||'reps'}</span>
               </div>
               <span class="ss-live-count" id="ss-live-count-a-${i}">${ssProgressA[i]}/${pair.exerciseA.sets}</span>
@@ -202,12 +201,9 @@ function renderSupersetActive() {
 
             <div class="ss-live-exercise ${i === ssPairIdx && ssPhase === 'B' ? 'active' : ''}"
                  id="ss-live-ex-b-${i}">
-              <span class="ss-live-badge ${i === ssPairIdx && ssPhase === 'B' ? 'badge-active' : ''}">B</span>
+              <div class="ss-tube-fill" id="ss-fill-b-${i}" style="width:${fillPct(ssProgressB[i], pair.exerciseB.sets)}%"></div>
               <div class="ss-live-ex-info">
-                <span class="ss-live-name" id="ss-live-name-b-${i}"
-                      style="${getProgressStyle(ssProgressB[i], pair.exerciseB.sets)}">
-                  ${pair.exerciseB.name}
-                </span>
+                <span class="ss-live-name">${pair.exerciseB.name}</span>
                 <span class="ss-live-detail">${pair.exerciseB.reps} ${pair.exerciseB.unit||'reps'}</span>
               </div>
               <span class="ss-live-count" id="ss-live-count-b-${i}">${ssProgressB[i]}/${pair.exerciseB.sets}</span>
@@ -223,7 +219,7 @@ function renderSupersetActive() {
   `;
 }
 
-// Update only the changed elements — no full re-render, no scroll reset
+// Update in place — no scroll reset
 function updateSupersetDisplay() {
   const ss     = ssWorkout[ssPairIdx];
   const setNum = ssPhase === 'A'
@@ -234,35 +230,26 @@ function updateSupersetDisplay() {
   const rl = document.querySelector('.timer-round-label');
   const ec = document.querySelector('.timer-ex-counter');
   if (rl) rl.textContent = `Superset ${ssPairIdx + 1} / ${ssWorkout.length}`;
-  if (ec) ec.textContent = `Set ${setNum} of ${ss.exerciseA.sets} • ${ssPhase}`;
+  if (ec) ec.textContent = `Set ${setNum} of ${ss.exerciseA.sets}`;
 
-  // Update each pair
   ssWorkout.forEach((pair, i) => {
-    // Progress fill on name text
-    const nameA = document.getElementById(`ss-live-name-a-${i}`);
-    const nameB = document.getElementById(`ss-live-name-b-${i}`);
-    if (nameA) nameA.setAttribute('style', getProgressStyle(ssProgressA[i], pair.exerciseA.sets));
-    if (nameB) nameB.setAttribute('style', getProgressStyle(ssProgressB[i], pair.exerciseB.sets));
+    // Tube fill widths
+    updateTubeFill(`ss-fill-a-${i}`, ssProgressA[i], pair.exerciseA.sets);
+    updateTubeFill(`ss-fill-b-${i}`, ssProgressB[i], pair.exerciseB.sets);
 
     // Set counts
-    const cntA = document.getElementById(`ss-live-count-a-${i}`);
-    const cntB = document.getElementById(`ss-live-count-b-${i}`);
-    if (cntA) cntA.textContent = `${ssProgressA[i]}/${pair.exerciseA.sets}`;
-    if (cntB) cntB.textContent = `${ssProgressB[i]}/${pair.exerciseB.sets}`;
+    const cA = document.getElementById(`ss-live-count-a-${i}`);
+    const cB = document.getElementById(`ss-live-count-b-${i}`);
+    if (cA) cA.textContent = `${ssProgressA[i]}/${pair.exerciseA.sets}`;
+    if (cB) cB.textContent = `${ssProgressB[i]}/${pair.exerciseB.sets}`;
 
-    // Active highlight on exercise rows
+    // Active row highlight
     const exA = document.getElementById(`ss-live-ex-a-${i}`);
     const exB = document.getElementById(`ss-live-ex-b-${i}`);
-    if (exA) exA.className = `ss-live-exercise${(i === ssPairIdx && ssPhase === 'A') ? ' active' : ''}`;
-    if (exB) exB.className = `ss-live-exercise${(i === ssPairIdx && ssPhase === 'B') ? ' active' : ''}`;
+    if (exA) exA.className = `ss-live-exercise${i === ssPairIdx && ssPhase === 'A' ? ' active' : ''}`;
+    if (exB) exB.className = `ss-live-exercise${i === ssPairIdx && ssPhase === 'B' ? ' active' : ''}`;
 
-    // Badge colour
-    const badgeA = exA?.querySelector('.ss-live-badge');
-    const badgeB = exB?.querySelector('.ss-live-badge');
-    if (badgeA) badgeA.className = `ss-live-badge${(i === ssPairIdx && ssPhase === 'A') ? ' badge-active' : ''}`;
-    if (badgeB) badgeB.className = `ss-live-badge${(i === ssPairIdx && ssPhase === 'B') ? ' badge-active' : ''}`;
-
-    // Pair border
+    // Pair border + opacity
     const pairEl = document.getElementById(`ss-live-pair-${i}`);
     if (pairEl) {
       pairEl.className = [
@@ -273,7 +260,7 @@ function updateSupersetDisplay() {
     }
   });
 
-  // Scroll current pair into view
+  // Scroll current into view
   const cur = document.getElementById(`ss-live-pair-${ssPairIdx}`);
   if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -364,9 +351,7 @@ function ssGenerate() {
 }
 
 function ssReset() {
-  ssWorkout     = [];
-  ssIsCustom    = false;
-  ssCustomDraft = [];
+  ssWorkout = []; ssIsCustom = false; ssCustomDraft = [];
   renderSupersetTab();
 }
 
@@ -448,7 +433,7 @@ function ssCustomAdjustSets(i, delta) {
 
 function ssApplyCustom() {
   if (ssCustomDraft.length === 0) { showToast('Add at least one pair'); return; }
-  ssWorkout  = ssCustomDraft.map(p => ({ ...p }));
+  ssWorkout = ssCustomDraft.map(p => ({ ...p }));
   ssNumPairs = ssWorkout.length;
   ssIsCustom = true;
   ssCancelCustom();
@@ -474,20 +459,15 @@ function ssDone() {
     return;
   }
 
-  // Phase B complete
   ssProgressB[ssPairIdx]++;
   const totalSets = ssWorkout[ssPairIdx].exerciseA.sets;
 
   if (ssProgressB[ssPairIdx] >= totalSets) {
-    // This superset fully done — move to next
+    // Superset complete — move to next
     ssPairIdx++;
     ssPhase = 'A';
-    if (ssPairIdx >= ssWorkout.length) {
-      ssComplete();
-      return;
-    }
+    if (ssPairIdx >= ssWorkout.length) { ssComplete(); return; }
   } else {
-    // More sets remaining — back to A
     ssPhase = 'A';
   }
 
@@ -502,7 +482,6 @@ function ssStop() {
 
 function ssComplete() {
   ssRunning = false;
-
   const splitLabel = ssSplits.length
     ? ssSplits.map(id => MUSCLE_GROUPS.find(g => g.id === id)?.label).join(' + ')
     : 'Custom';
@@ -512,7 +491,6 @@ function ssComplete() {
     pairs: ssWorkout.length,
     splits: [...ssSplits],
   });
-
   document.getElementById('tab-superset').innerHTML = `
     <div class="complete-screen">
       <div class="complete-icon">

@@ -843,6 +843,8 @@ input, select {
 }
 
 .ss-live-exercise {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -853,6 +855,30 @@ input, select {
 
 .ss-live-exercise.active {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.ss-tube-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+  z-index: 0;
+}
+
+.ss-live-ex-info,
+.ss-live-count {
+  position: relative;
+  z-index: 1;
+}
+
+.ss-live-exercise .ss-live-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
 }
 
 .ss-live-exercise + .ss-live-exercise {
