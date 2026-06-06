@@ -23,7 +23,7 @@ const DC_RANKS = [
   { label: 'K', value: 13 },
 ];
 
-let dcExercises = { spades: '', hearts: '', diamonds: '', clubs: '' };
+let dcExercises = { spades: '', hearts: '', diamonds: '', clubs: '', joker: '' };
 let dcDeck      = [];
 let dcIdx       = 0;
 let dcFlipped   = false;
@@ -33,10 +33,9 @@ let dcPhase     = 'setup'; // 'setup' | 'active' | 'complete'
 
 function renderCardsTab() {
   const pane = document.getElementById('tab-cards');
-  if (dcPhase === 'active')   { pane.innerHTML = renderDcActive();   attachDcFlip(); return; }
+  if (dcPhase === 'active')   { pane.innerHTML = renderDcActive();   return; }
   if (dcPhase === 'complete') { pane.innerHTML = renderDcComplete(); return; }
   pane.innerHTML = renderDcSetup();
-  attachDcSearch();
 }
 
 function renderDcSetup() {
@@ -50,23 +49,27 @@ function renderDcSetup() {
       ${DC_SUITS.map(s => `
         <div class="dc-suit-row">
           <span class="dc-suit-sym ${s.red ? 'red' : ''}">${s.symbol}</span>
-          <div class="dc-suit-input-wrap" id="dc-wrap-${s.key}">
-            <input class="text-input dc-ex-input"
-                   id="dc-input-${s.key}"
-                   type="text"
-                   placeholder="${s.label} exercise…"
-                   value="${dcExercises[s.key]}"
-                   autocomplete="off"
-                   oninput="dcFilterExercises('${s.key}')" />
-            <div class="dc-suggestions" id="dc-sugg-${s.key}"></div>
-          </div>
+          <input class="text-input"
+                 id="dc-input-${s.key}"
+                 type="text"
+                 placeholder="${s.label} exercise…"
+                 value="${dcExercises[s.key]}"
+                 oninput="dcExercises['${s.key}'] = this.value" />
         </div>
       `).join('')}
+
+      <div class="dc-suit-row">
+        <span class="dc-suit-sym dc-joker-sym">🃏</span>
+        <input class="text-input"
+               id="dc-input-joker"
+               type="text"
+               placeholder="Joker exercise…"
+               value="${dcExercises.joker}"
+               oninput="dcExercises.joker = this.value" />
+      </div>
     </div>
 
-    <div style="margin-top:8px">
-      <div class="dc-value-note">A=1 · 2–10 face value · J=11 · Q=12 · K=13</div>
-    </div>
+    <div class="dc-value-note" style="margin-top:8px">A=1 · 2–10 face value · J=11 · Q=12 · K=13 · Joker=your call</div>
 
     <button class="btn-primary btn-lg" style="margin-top:24px" onclick="dcStart()">
       Shuffle &amp; Start
@@ -75,10 +78,30 @@ function renderDcSetup() {
 }
 
 function renderDcActive() {
-  const card     = dcDeck[dcIdx];
-  const suit     = DC_SUITS.find(s => s.key === card.suit);
-  const exercise = dcExercises[card.suit] || suit.label;
+  const card      = dcDeck[dcIdx];
   const remaining = dcDeck.length - dcIdx - 1;
+  const isJoker   = card.joker;
+
+  let frontClass = '';
+  let symbol     = '';
+  let rankLabel  = '';
+  let repLine    = '';
+  let exercise   = '';
+
+  if (isJoker) {
+    frontClass = 'joker';
+    symbol     = '🃏';
+    rankLabel  = 'JKR';
+    repLine    = 'Joker';
+    exercise   = dcExercises.joker || 'Joker';
+  } else {
+    const suit  = DC_SUITS.find(s => s.key === card.suit);
+    frontClass  = suit.red ? 'red' : '';
+    symbol      = suit.symbol;
+    rankLabel   = card.rank.label;
+    repLine     = `${card.rank.value} reps`;
+    exercise    = dcExercises[card.suit] || suit.label;
+  }
 
   return `
     <div class="dc-screen">
@@ -100,19 +123,19 @@ function renderDcActive() {
               </div>
             </div>
 
-            <div class="dc-card-front ${suit.red ? 'red' : ''}">
+            <div class="dc-card-front ${frontClass}">
               <div class="dc-corner dc-corner-tl">
-                <div class="dc-corner-rank">${card.rank.label}</div>
-                <div class="dc-corner-suit">${suit.symbol}</div>
+                <div class="dc-corner-rank">${rankLabel}</div>
+                <div class="dc-corner-suit">${symbol}</div>
               </div>
               <div class="dc-card-center">
-                <div class="dc-center-suit">${suit.symbol}</div>
-                <div class="dc-center-value">${card.rank.value} reps</div>
+                <div class="dc-center-suit">${symbol}</div>
+                <div class="dc-center-value">${repLine}</div>
                 <div class="dc-center-ex">${exercise}</div>
               </div>
               <div class="dc-corner dc-corner-br">
-                <div class="dc-corner-rank">${card.rank.label}</div>
-                <div class="dc-corner-suit">${suit.symbol}</div>
+                <div class="dc-corner-rank">${rankLabel}</div>
+                <div class="dc-corner-suit">${symbol}</div>
               </div>
             </div>
 
@@ -134,7 +157,7 @@ function renderDcComplete() {
         </svg>
       </div>
       <h2 class="complete-title">Deck Complete!</h2>
-      <p class="complete-sub">You made it through all 52 cards.</p>
+      <p class="complete-sub">You made it through all 54 cards.</p>
       <button class="btn-primary btn-lg" style="margin-top:32px" onclick="dcReset()">
         New Game
       </button>
@@ -145,9 +168,13 @@ function renderDcComplete() {
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 function dcStart() {
-  const missing = DC_SUITS.filter(s => !dcExercises[s.key].trim());
-  if (missing.length > 0) {
-    showToast(`Add an exercise for ${missing.map(s => s.label).join(', ')}`);
+  const missingSuits = DC_SUITS.filter(s => !dcExercises[s.key].trim());
+  if (missingSuits.length > 0) {
+    showToast(`Add an exercise for ${missingSuits.map(s => s.label).join(', ')}`);
+    return;
+  }
+  if (!dcExercises.joker.trim()) {
+    showToast('Add an exercise for Joker');
     return;
   }
 
@@ -168,17 +195,12 @@ function dcReset() {
   renderCardsTab();
 }
 
-function attachDcFlip() {
-  // tap handled by onclick in HTML
-}
-
 function dcFlipCard() {
   if (dcFlipped) { dcNext(); return; }
   dcFlipped = true;
   const cardEl = document.getElementById('dc-card');
   if (cardEl) cardEl.classList.add('flipped');
 
-  // Render next button after flip transition ends
   setTimeout(() => {
     const pane = document.getElementById('tab-cards');
     if (pane && dcPhase === 'active') pane.innerHTML = renderDcActive();
@@ -196,7 +218,7 @@ function dcNext() {
   renderCardsTab();
 }
 
-// ── Deck building ─────────────────────────────────────────────────────────────
+// ── Deck building — 52 standard + 2 jokers ───────────────────────────────────
 
 function dcBuildShuffledDeck() {
   const deck = [];
@@ -205,54 +227,12 @@ function dcBuildShuffledDeck() {
       deck.push({ suit: suit.key, rank });
     });
   });
-  // Fisher-Yates
+  deck.push({ joker: true });
+  deck.push({ joker: true });
+
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
-}
-
-// ── Exercise search/suggest ───────────────────────────────────────────────────
-
-function attachDcSearch() {
-  DC_SUITS.forEach(s => {
-    const input = document.getElementById(`dc-input-${s.key}`);
-    if (!input) return;
-    input.addEventListener('blur', () => {
-      setTimeout(() => {
-        const sugg = document.getElementById(`dc-sugg-${s.key}`);
-        if (sugg) sugg.innerHTML = '';
-      }, 200);
-    });
-  });
-}
-
-function dcFilterExercises(suitKey) {
-  const input = document.getElementById(`dc-input-${suitKey}`);
-  const sugg  = document.getElementById(`dc-sugg-${suitKey}`);
-  if (!input || !sugg) return;
-
-  const q = input.value.trim().toLowerCase();
-  dcExercises[suitKey] = input.value;
-
-  if (!q) { sugg.innerHTML = ''; return; }
-
-  const matches = EXERCISES
-    .filter(e => e.name.toLowerCase().includes(q))
-    .slice(0, 6);
-
-  sugg.innerHTML = matches.map(e => `
-    <button class="dc-sugg-item" onmousedown="dcSelectEx('${suitKey}', ${JSON.stringify(e.name)})">
-      ${e.name}
-    </button>
-  `).join('');
-}
-
-function dcSelectEx(suitKey, name) {
-  dcExercises[suitKey] = name;
-  const input = document.getElementById(`dc-input-${suitKey}`);
-  if (input) input.value = name;
-  const sugg = document.getElementById(`dc-sugg-${suitKey}`);
-  if (sugg) sugg.innerHTML = '';
 }

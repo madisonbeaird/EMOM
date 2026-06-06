@@ -1829,6 +1829,12 @@ input, select {
   letter-spacing: 0.5px;
 }
 
-.dc-next-btn {
-  width: 220px;
+.dc-card-front.joker {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.dc-joker-sym {
+  font-size: 24px;
+  padding-top: 8px;
 }
