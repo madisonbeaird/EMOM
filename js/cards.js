@@ -119,10 +119,7 @@ function renderDcActive() {
           </div>
         </div>
 
-        ${dcFlipped
-          ? `<div class="dc-tap-hint">Tap for next card</div>`
-          : `<div class="dc-tap-hint">Tap to reveal</div>`
-        }
+        ${dcFlipped ? '' : `<div class="dc-tap-hint">Tap to reveal</div>`}
       </div>
     </div>
   `;
