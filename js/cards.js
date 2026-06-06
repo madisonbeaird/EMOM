@@ -119,7 +119,7 @@ function renderDcActive() {
 
             <div class="dc-card-back">
               <div class="dc-back-pattern">
-                <span>EMOM</span>
+                <span>MAD</span>
               </div>
             </div>
 
