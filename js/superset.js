@@ -1,12 +1,13 @@
 // ── Superset Tab ─────────────────────────────────────────────────────────────
 let ssEquipment   = [];
 let ssSplits      = [];
-let ssNumPairs    = 4;      // how many supersets to generate
+let ssNumPairs    = 4;
 let ssWorkout     = [];
 let ssRunning     = false;
 let ssPairIdx     = 0;
-let ssSetIdx      = 0;
-let ssPhase       = 'A';   // 'A' | 'B' | 'rest'
+let ssPhase       = 'A';      // 'A' | 'B'
+let ssProgressA   = [];       // sets of A completed per superset index
+let ssProgressB   = [];       // sets of B completed per superset index
 let ssIsCustom    = false;
 let ssCustomDraft = [];
 
@@ -15,9 +16,7 @@ let ssCustomDraft = [];
 function renderSupersetTab() {
   const pane = document.getElementById('tab-superset');
   pane.innerHTML = `
-    <div class="section-header">
-      <h2>Superset</h2>
-    </div>
+    <div class="section-header"><h2>Superset</h2></div>
     ${ssWorkout.length === 0 ? renderSupersetSetup() : (ssRunning ? renderSupersetActive() : renderSupersetPreview())}
   `;
   attachSupersetEvents();
@@ -99,7 +98,6 @@ function renderSupersetPreview() {
         Start Workout
       </button>
     </div>
-
     ${renderSsCustomModal()}
   `;
 }
@@ -108,9 +106,7 @@ function renderSupersetCard(ss, i) {
   return `
     <div class="superset-card">
       <div class="superset-label">Superset ${i + 1}</div>
-
-      <div class="exercise-card" id="card-ss-a-${i}"
-           data-index="${i}" data-subtype="A" data-type="ss">
+      <div class="exercise-card" id="card-ss-a-${i}" data-index="${i}" data-subtype="A" data-type="ss">
         <div class="card-inner">
           <div class="card-num">A</div>
           <div class="card-body">
@@ -120,19 +116,16 @@ function renderSupersetCard(ss, i) {
               <span class="card-reps" id="ss-sets-a-${i}">${ss.exerciseA.sets} sets</span>
               <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
               &nbsp;
-              <button class="rep-btn" onclick="ssAdjustReps(${i}, 'A', -1)">−</button>
-              <span class="card-reps" id="ss-reps-a-${i}">${ss.exerciseA.reps} ${ss.exerciseA.unit || 'reps'}</span>
-              <button class="rep-btn" onclick="ssAdjustReps(${i}, 'A', 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustReps(${i},'A',-1)">−</button>
+              <span class="card-reps" id="ss-reps-a-${i}">${ss.exerciseA.reps} ${ss.exerciseA.unit||'reps'}</span>
+              <button class="rep-btn" onclick="ssAdjustReps(${i},'A',1)">+</button>
             </div>
           </div>
           <div class="card-swipe-hint">swipe</div>
         </div>
       </div>
-
       <div class="superset-divider">+</div>
-
-      <div class="exercise-card" id="card-ss-b-${i}"
-           data-index="${i}" data-subtype="B" data-type="ss">
+      <div class="exercise-card" id="card-ss-b-${i}" data-index="${i}" data-subtype="B" data-type="ss">
         <div class="card-inner">
           <div class="card-num">B</div>
           <div class="card-body">
@@ -142,9 +135,9 @@ function renderSupersetCard(ss, i) {
               <span class="card-reps" id="ss-sets-b-${i}">${ss.exerciseB.sets} sets</span>
               <button class="rep-btn" onclick="ssAdjustSets(${i}, 1)">+</button>
               &nbsp;
-              <button class="rep-btn" onclick="ssAdjustReps(${i}, 'B', -1)">−</button>
-              <span class="card-reps" id="ss-reps-b-${i}">${ss.exerciseB.reps} ${ss.exerciseB.unit || 'reps'}</span>
-              <button class="rep-btn" onclick="ssAdjustReps(${i}, 'B', 1)">+</button>
+              <button class="rep-btn" onclick="ssAdjustReps(${i},'B',-1)">−</button>
+              <span class="card-reps" id="ss-reps-b-${i}">${ss.exerciseB.reps} ${ss.exerciseB.unit||'reps'}</span>
+              <button class="rep-btn" onclick="ssAdjustReps(${i},'B',1)">+</button>
             </div>
           </div>
           <div class="card-swipe-hint">swipe</div>
@@ -154,68 +147,135 @@ function renderSupersetCard(ss, i) {
   `;
 }
 
-// ── Active Workout — no timers ────────────────────────────────────────────────
+// ── Active Workout — full scrollable list, progress fill on exercise names ────
+
+function getProgressStyle(done, total) {
+  if (!done || done <= 0) return '';
+  const pct = Math.min(100, Math.round((done / total) * 100));
+  if (pct >= 100) return 'color: var(--accent);';
+  // Gradient left-to-right: accent fills proportionally, rest stays dim
+  return `background: linear-gradient(to right, var(--accent) ${pct}%, var(--text-2) ${pct}%);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-clip: text;`;
+}
+
+function isPairComplete(i) {
+  if (!ssWorkout[i]) return false;
+  const s = ssWorkout[i].exerciseA.sets;
+  return ssProgressA[i] >= s && ssProgressB[i] >= s;
+}
 
 function renderSupersetActive() {
-  const ss = ssWorkout[ssPairIdx];
-
-  // Rest screen between sets — no countdown, just a prompt
-  if (ssPhase === 'rest') {
-    return `
-      <div class="ss-active-screen">
-        <div class="ss-active-meta">
-          <span class="timer-progress-label">
-            Superset ${ssPairIdx + 1} / ${ssWorkout.length} &bull; Set ${ssSetIdx} done
-          </span>
-          <button class="text-btn" onclick="ssStop()">End</button>
-        </div>
-
-        <div class="ss-rest-block">
-          <div class="ss-rest-label">Rest</div>
-          <div class="ss-rest-sub">Take as long as you need</div>
-        </div>
-
-        <div class="ss-next-preview">
-          Up next &mdash; <strong>${ss.exerciseA.name}</strong>
-        </div>
-
-        <div class="ss-active-controls">
-          <button class="btn-primary btn-lg" onclick="ssNextSet()">Next Set</button>
-        </div>
-      </div>
-    `;
-  }
-
-  const ex         = ssPhase === 'A' ? ss.exerciseA : ss.exerciseB;
-  const isLastPhase = ssPhase === 'B';
-  const nextLabel  = ssPhase === 'A'
-    ? ss.exerciseB.name
-    : (ssSetIdx + 1 < ss.exerciseA.sets ? 'Rest' : (ssPairIdx + 1 < ssWorkout.length ? `Superset ${ssPairIdx + 2}` : 'Finish'));
+  const ss      = ssWorkout[ssPairIdx];
+  const setNum  = ssPhase === 'A'
+    ? ssProgressA[ssPairIdx] + 1
+    : ssProgressB[ssPairIdx] + 1;
 
   return `
-    <div class="ss-active-screen">
-      <div class="ss-active-meta">
+    <div class="ss-live-screen">
+      <div class="ss-live-header">
         <div>
           <div class="timer-round-label">Superset ${ssPairIdx + 1} / ${ssWorkout.length}</div>
-          <div class="timer-ex-counter">Set ${ssSetIdx + 1} of ${ss.exerciseA.sets}</div>
+          <div class="timer-ex-counter">Set ${setNum} of ${ss.exerciseA.sets} &bull; ${ssPhase}</div>
         </div>
         <button class="text-btn" onclick="ssStop()">End</button>
       </div>
 
-      <div class="ss-phase-badge phase-${ssPhase.toLowerCase()}">${ssPhase}</div>
+      <div class="ss-live-list">
+        ${ssWorkout.map((pair, i) => `
+          <div class="ss-live-pair ${i === ssPairIdx ? 'current' : ''} ${isPairComplete(i) ? 'done' : ''}"
+               id="ss-live-pair-${i}">
+            <div class="ss-live-label">Superset ${i + 1}</div>
 
-      <div class="ss-exercise-block">
-        <div class="ss-exercise-name">${ex.name}</div>
-        <div class="ss-exercise-reps">${ex.reps} ${ex.unit || 'reps'}</div>
+            <div class="ss-live-exercise ${i === ssPairIdx && ssPhase === 'A' ? 'active' : ''}"
+                 id="ss-live-ex-a-${i}">
+              <span class="ss-live-badge ${i === ssPairIdx && ssPhase === 'A' ? 'badge-active' : ''}">A</span>
+              <div class="ss-live-ex-info">
+                <span class="ss-live-name" id="ss-live-name-a-${i}"
+                      style="${getProgressStyle(ssProgressA[i], pair.exerciseA.sets)}">
+                  ${pair.exerciseA.name}
+                </span>
+                <span class="ss-live-detail">${pair.exerciseA.reps} ${pair.exerciseA.unit||'reps'}</span>
+              </div>
+              <span class="ss-live-count" id="ss-live-count-a-${i}">${ssProgressA[i]}/${pair.exerciseA.sets}</span>
+            </div>
+
+            <div class="ss-live-exercise ${i === ssPairIdx && ssPhase === 'B' ? 'active' : ''}"
+                 id="ss-live-ex-b-${i}">
+              <span class="ss-live-badge ${i === ssPairIdx && ssPhase === 'B' ? 'badge-active' : ''}">B</span>
+              <div class="ss-live-ex-info">
+                <span class="ss-live-name" id="ss-live-name-b-${i}"
+                      style="${getProgressStyle(ssProgressB[i], pair.exerciseB.sets)}">
+                  ${pair.exerciseB.name}
+                </span>
+                <span class="ss-live-detail">${pair.exerciseB.reps} ${pair.exerciseB.unit||'reps'}</span>
+              </div>
+              <span class="ss-live-count" id="ss-live-count-b-${i}">${ssProgressB[i]}/${pair.exerciseB.sets}</span>
+            </div>
+          </div>
+        `).join('')}
       </div>
 
-      <div class="timer-next">Up next: <strong>${nextLabel}</strong></div>
-
-      <div class="ss-active-controls">
+      <div class="ss-live-footer">
         <button class="btn-primary btn-lg" onclick="ssDone()">Done</button>
       </div>
     </div>
   `;
+}
+
+// Update only the changed elements — no full re-render, no scroll reset
+function updateSupersetDisplay() {
+  const ss     = ssWorkout[ssPairIdx];
+  const setNum = ssPhase === 'A'
+    ? ssProgressA[ssPairIdx] + 1
+    : ssProgressB[ssPairIdx] + 1;
+
+  // Header
+  const rl = document.querySelector('.timer-round-label');
+  const ec = document.querySelector('.timer-ex-counter');
+  if (rl) rl.textContent = `Superset ${ssPairIdx + 1} / ${ssWorkout.length}`;
+  if (ec) ec.textContent = `Set ${setNum} of ${ss.exerciseA.sets} • ${ssPhase}`;
+
+  // Update each pair
+  ssWorkout.forEach((pair, i) => {
+    // Progress fill on name text
+    const nameA = document.getElementById(`ss-live-name-a-${i}`);
+    const nameB = document.getElementById(`ss-live-name-b-${i}`);
+    if (nameA) nameA.setAttribute('style', getProgressStyle(ssProgressA[i], pair.exerciseA.sets));
+    if (nameB) nameB.setAttribute('style', getProgressStyle(ssProgressB[i], pair.exerciseB.sets));
+
+    // Set counts
+    const cntA = document.getElementById(`ss-live-count-a-${i}`);
+    const cntB = document.getElementById(`ss-live-count-b-${i}`);
+    if (cntA) cntA.textContent = `${ssProgressA[i]}/${pair.exerciseA.sets}`;
+    if (cntB) cntB.textContent = `${ssProgressB[i]}/${pair.exerciseB.sets}`;
+
+    // Active highlight on exercise rows
+    const exA = document.getElementById(`ss-live-ex-a-${i}`);
+    const exB = document.getElementById(`ss-live-ex-b-${i}`);
+    if (exA) exA.className = `ss-live-exercise${(i === ssPairIdx && ssPhase === 'A') ? ' active' : ''}`;
+    if (exB) exB.className = `ss-live-exercise${(i === ssPairIdx && ssPhase === 'B') ? ' active' : ''}`;
+
+    // Badge colour
+    const badgeA = exA?.querySelector('.ss-live-badge');
+    const badgeB = exB?.querySelector('.ss-live-badge');
+    if (badgeA) badgeA.className = `ss-live-badge${(i === ssPairIdx && ssPhase === 'A') ? ' badge-active' : ''}`;
+    if (badgeB) badgeB.className = `ss-live-badge${(i === ssPairIdx && ssPhase === 'B') ? ' badge-active' : ''}`;
+
+    // Pair border
+    const pairEl = document.getElementById(`ss-live-pair-${i}`);
+    if (pairEl) {
+      pairEl.className = [
+        'ss-live-pair',
+        i === ssPairIdx ? 'current' : '',
+        isPairComplete(i) ? 'done' : '',
+      ].filter(Boolean).join(' ');
+    }
+  });
+
+  // Scroll current pair into view
+  const cur = document.getElementById(`ss-live-pair-${ssPairIdx}`);
+  if (cur) cur.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── Custom Modal ──────────────────────────────────────────────────────────────
@@ -257,20 +317,20 @@ function renderSsDraftList() {
         <button class="rep-btn danger" onclick="ssCustomRemovePair(${i})">×</button>
       </div>
       <select class="select-input" onchange="ssCustomSetExercise(${i},'A',this.value)">
-        ${getAvailableExercises(ssEquipment).map(ex => `
-          <option value="${ex.id}" ${pair.exerciseA.id === ex.id ? 'selected' : ''}>${ex.name}</option>
-        `).join('')}
+        ${getAvailableExercises(ssEquipment).map(ex =>
+          `<option value="${ex.id}" ${pair.exerciseA.id === ex.id ? 'selected' : ''}>${ex.name}</option>`
+        ).join('')}
       </select>
       <select class="select-input" onchange="ssCustomSetExercise(${i},'B',this.value)">
-        ${getAvailableExercises(ssEquipment).map(ex => `
-          <option value="${ex.id}" ${pair.exerciseB.id === ex.id ? 'selected' : ''}>${ex.name}</option>
-        `).join('')}
+        ${getAvailableExercises(ssEquipment).map(ex =>
+          `<option value="${ex.id}" ${pair.exerciseB.id === ex.id ? 'selected' : ''}>${ex.name}</option>`
+        ).join('')}
       </select>
       <div class="draft-controls" style="margin-top:8px">
         <span class="label" style="margin:0;font-size:11px">Sets:</span>
-        <button class="rep-btn" onclick="ssCustomAdjustSets(${i}, -1)">−</button>
+        <button class="rep-btn" onclick="ssCustomAdjustSets(${i},-1)">−</button>
         <span id="ss-draft-sets-${i}">${pair.exerciseA.sets}</span>
-        <button class="rep-btn" onclick="ssCustomAdjustSets(${i}, 1)">+</button>
+        <button class="rep-btn" onclick="ssCustomAdjustSets(${i},1)">+</button>
       </div>
     </div>
   `).join('');
@@ -347,13 +407,11 @@ function ssSaveCurrent() {
 function ssOpenCustom() {
   ssCustomDraft = [];
   renderSupersetTab();
-  const modal = document.getElementById('ss-custom-modal');
-  if (modal) modal.style.display = 'flex';
+  document.getElementById('ss-custom-modal').style.display = 'flex';
 }
 
 function ssCancelCustom() {
-  const modal = document.getElementById('ss-custom-modal');
-  if (modal) modal.style.display = 'none';
+  document.getElementById('ss-custom-modal').style.display = 'none';
 }
 
 function ssCustomAddPair() {
@@ -364,23 +422,20 @@ function ssCustomAddPair() {
     exerciseA: { ...pool[0], sets: 4 },
     exerciseB: { ...pool[Math.min(1, pool.length - 1)], sets: 4 },
   });
-  const el = document.getElementById('ss-draft-list');
-  if (el) el.innerHTML = renderSsDraftList();
+  document.getElementById('ss-draft-list').innerHTML = renderSsDraftList();
 }
 
 function ssCustomRemovePair(i) {
   ssCustomDraft.splice(i, 1);
-  const el = document.getElementById('ss-draft-list');
-  if (el) el.innerHTML = renderSsDraftList();
+  document.getElementById('ss-draft-list').innerHTML = renderSsDraftList();
 }
 
 function ssCustomSetExercise(pairIdx, side, exerciseId) {
   const ex = EXERCISES.find(e => e.id === exerciseId);
   if (!ex) return;
   const pair = ssCustomDraft[pairIdx];
-  const sets = pair.exerciseA.sets;
-  if (side === 'A') pair.exerciseA = { ...ex, sets };
-  else              pair.exerciseB = { ...ex, sets };
+  if (side === 'A') pair.exerciseA = { ...ex, sets: pair.exerciseA.sets };
+  else              pair.exerciseB = { ...ex, sets: pair.exerciseB.sets };
 }
 
 function ssCustomAdjustSets(i, delta) {
@@ -403,42 +458,40 @@ function ssApplyCustom() {
 // ── Active Workout Logic ──────────────────────────────────────────────────────
 
 function ssStart() {
-  ssPairIdx = 0;
-  ssSetIdx  = 0;
-  ssPhase   = 'A';
-  ssRunning = true;
+  ssPairIdx   = 0;
+  ssPhase     = 'A';
+  ssProgressA = new Array(ssWorkout.length).fill(0);
+  ssProgressB = new Array(ssWorkout.length).fill(0);
+  ssRunning   = true;
   renderSupersetTab();
 }
 
 function ssDone() {
   if (ssPhase === 'A') {
+    ssProgressA[ssPairIdx]++;
     ssPhase = 'B';
-    renderSupersetTab();
+    updateSupersetDisplay();
     return;
   }
 
-  // Completed B — end of this A+B pair for this set
-  ssSetIdx++;
-  const ss = ssWorkout[ssPairIdx];
+  // Phase B complete
+  ssProgressB[ssPairIdx]++;
+  const totalSets = ssWorkout[ssPairIdx].exerciseA.sets;
 
-  if (ssSetIdx >= ss.exerciseA.sets) {
-    // All sets done for this superset — move to next
+  if (ssProgressB[ssPairIdx] >= totalSets) {
+    // This superset fully done — move to next
     ssPairIdx++;
-    ssSetIdx = 0;
+    ssPhase = 'A';
     if (ssPairIdx >= ssWorkout.length) {
       ssComplete();
       return;
     }
+  } else {
+    // More sets remaining — back to A
+    ssPhase = 'A';
   }
 
-  // Show rest screen between sets
-  ssPhase = 'rest';
-  renderSupersetTab();
-}
-
-function ssNextSet() {
-  ssPhase = 'A';
-  renderSupersetTab();
+  updateSupersetDisplay();
 }
 
 function ssStop() {
@@ -460,8 +513,7 @@ function ssComplete() {
     splits: [...ssSplits],
   });
 
-  const pane = document.getElementById('tab-superset');
-  pane.innerHTML = `
+  document.getElementById('tab-superset').innerHTML = `
     <div class="complete-screen">
       <div class="complete-icon">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -470,9 +522,7 @@ function ssComplete() {
       </div>
       <h2 class="complete-title">Workout Complete</h2>
       <p class="complete-sub">${ssWorkout.length} supersets finished</p>
-      <button class="btn-primary btn-lg" style="margin-top:40px" onclick="ssReset()">
-        New Workout
-      </button>
+      <button class="btn-primary btn-lg" style="margin-top:40px" onclick="ssReset()">New Workout</button>
     </div>
   `;
 }
