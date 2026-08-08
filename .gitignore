@@ -1,0 +1,9 @@
+# Firebase config — contains secret keys, never commit
+wild-rep/js/firebase-config.js
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
